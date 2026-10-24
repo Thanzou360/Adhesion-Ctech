@@ -230,7 +230,10 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .fiche-photo{position:relative;aspect-ratio:4/3.4;background:var(--bg-2);max-width:100%}
 .fiche-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .fiche-photo .pill{position:absolute;left:10px;top:10px;background:var(--pill-over)}
-.fiche-photo .badge-ex{position:absolute;right:10px;top:10px;background:var(--pill-over)}
+.fiche-photo .badges{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+.fiche-photo .badge-ex{background:var(--pill-over)}
+.badge-nouv{font:700 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--on-grad);background:var(--grad);padding:3px 8px;border-radius:6px}
+.nb-nouv{font-weight:700;color:var(--blue)}
 .fiche-body{padding:14px 14px 12px;display:grid;gap:6px;align-content:start;min-width:0}
 .fiche-ref{font:500 12px var(--f-mono);color:var(--faint);display:flex;justify-content:space-between;gap:8px}
 .fiche h3{font:700 16px/1.25 var(--f-body)}
@@ -525,8 +528,44 @@ const CONFIG = {
   SUPABASE_URL: "https://xqhgqcvemriqtgjjjmoo.supabase.co",        // ex. "https://abcdxyz.supabase.co"
   SUPABASE_ANON_KEY: "sb_publishable_-jfoAUf_unOEXo3OEMlI3A_zo4xpWLr",   // clé « anon public » (ou « publishable »)
   BUCKET: "adhesions",
-  EMAILS_ACTIFS: false     // passe à true une fois la fonction « envoyer-email » déployée
+  EMAILS_ACTIFS: false,    // passe à true une fois la fonction « envoyer-email » déployée
+
+  /* Alerte « nouvelle demande » aux membres du bureau (service gratuit FormSubmit, sans Gmail à configurer).
+     ALERTE_PRINCIPALE reçoit l'e-mail d'activation au premier envoi ; ALERTE_COPIES reçoivent une copie.
+     Laisse ALERTE_PRINCIPALE vide pour désactiver. */
+  ALERTE_PRINCIPALE: "",
+  ALERTE_COPIES: []
 };
+
+/* Envoie l'alerte au bureau. N'échoue jamais : si l'alerte ne part pas, la demande reste enregistrée. */
+async function alerterBureau(d){
+  if (!CONFIG.ALERTE_PRINCIPALE) return false;
+  const lien = location.origin + location.pathname + "#bureau";
+  const corps = {
+    _subject: `Nouvelle demande d'adhésion : ${d.prenom} ${d.nom}`,
+    _template: "table",
+    _replyto: d.email,
+    "Candidat": `${d.prenom} ${d.nom}`,
+    "Référence": d.reference,
+    "Études": `${d.filiere} · ${d.niveau} — ${d.etablissement}`,
+    "Niveau tech": d.niveau_tech,
+    "Domaines": d.domaines.join(", "),
+    "Disponibilité": d.disponibilite,
+    "Motivation": d.motivation,
+    "Ce qu'il/elle apportera": d.apport,
+    "Voir la photo et voter": lien
+  };
+  if (CONFIG.ALERTE_COPIES.length) corps._cc = CONFIG.ALERTE_COPIES.join(",");
+  try {
+    const r = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(CONFIG.ALERTE_PRINCIPALE), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(corps)
+    });
+    const j = await r.json().catch(() => ({}));
+    return String(j.success) === "true";
+  } catch(e){ return false; }
+}
 
 /* Modèles d'e-mails proposés au bureau (modifiables avant l'envoi).
    {prenom}, {nom}, {reference} et {telephone} sont remplacés automatiquement. */
@@ -883,6 +922,7 @@ form.addEventListener("submit", async e => {
   try {
     await api.deposer(d, photo.blob, photo.dataUrl);
     const me = $("#merci-email"); me.hidden = true;
+    if (api.mode === "supabase") alerterBureau(d);
     api.accuse(reference).then(r => {
       if (r?.ok){ me.textContent = `Un e-mail de confirmation a été envoyé à ${d.email}. Pense à regarder dans les spams.`; me.hidden = false; }
     }).catch(() => {});
@@ -921,7 +961,11 @@ $("#form-suivi").addEventListener("submit", async e => {
 /* =====================================================================
    ESPACE BUREAU
    ===================================================================== */
-const B = { moi:null, demandes:[], filtre:"en_attente", q:"", ouverte:null };
+const B = { moi:null, demandes:[], filtre:"en_attente", q:"", ouverte:null, vues:new Set() };
+const cleVues = () => "ctech-vues-" + (B.moi?.email || "");
+function chargerVues(){ try { B.vues = new Set(JSON.parse(localStorage.getItem(cleVues()) || "[]")); } catch(e){ B.vues = new Set(); } }
+function marquerVue(id){ if (B.vues.has(id)) return; B.vues.add(id); try { localStorage.setItem(cleVues(), JSON.stringify([...B.vues])); } catch(e){} }
+const estNouvelle = d => !B.vues.has(d.id);
 
 async function entrerBureau(){
   if (B.moi) return;
@@ -941,6 +985,7 @@ $("#btn-actualiser").addEventListener("click", () => charger());
 
 function demarrerBureau(m){
   B.moi = m;
+  chargerVues();
   $("#bureau-login").hidden = true; $("#bureau-app").hidden = false;
   $("#bureau-who").textContent = `Connecté(e) : ${m.nom} · ${m.poste}`;
   charger();
@@ -954,6 +999,9 @@ function compteAvis(d){
   const c = { pour:0, reserve:0, contre:0 }; (d.avis||[]).forEach(a => c[a.vote] = (c[a.vote]||0) + 1); return c;
 }
 function rendreBureau(){
+  const nouvelles = B.demandes.filter(estNouvelle).length;
+  $("#bureau-who").innerHTML = `Connecté(e) : ${esc(B.moi.nom)} · ${esc(B.moi.poste)}` +
+    (nouvelles ? ` · <span class="nb-nouv">${nouvelles} nouvelle${nouvelles>1?"s":""} demande${nouvelles>1?"s":""}</span>` : "");
   const nb = s => B.demandes.filter(d => d.statut === s).length;
   const filtres = [["en_attente","En attente"],["entretien","Entretien"],["acceptee","Acceptées"],["refusee","Non retenues"],["toutes","Toutes"]];
   $("#filtres").innerHTML = filtres.map(([k,l]) =>
@@ -978,7 +1026,7 @@ function rendreGrille(){
     const c = compteAvis(d), st = STATUTS[d.statut] || STATUTS.en_attente;
     const avisManque = ["en_attente","entretien"].includes(d.statut) && !(d.avis||[]).some(a => a.membre_email === B.moi.email.toLowerCase());
     return `<button type="button" class="fiche" data-id="${esc(d.id)}">
-      <div class="fiche-photo"><img src="${esc(d.photo_url)}" alt="Photo de ${esc(d.prenom)} ${esc(d.nom)}" loading="lazy"><span class="pill st-${esc(d.statut)}">${esc(st.label)}</span>${d.exemple?'<span class="badge-ex">Exemple</span>':""}</div>
+      <div class="fiche-photo"><img src="${esc(d.photo_url)}" alt="Photo de ${esc(d.prenom)} ${esc(d.nom)}" loading="lazy"><span class="pill st-${esc(d.statut)}">${esc(st.label)}</span><span class="badges">${estNouvelle(d)?'<span class="badge-nouv">Nouveau</span>':""}${d.exemple?'<span class="badge-ex">Exemple</span>':""}</span></div>
       <div class="fiche-body">
         <div class="fiche-ref"><span>${esc(d.reference)}</span><span>${esc(ilYa(d.created_at))}</span></div>
         <h3>${esc(d.prenom)} ${esc(d.nom)}</h3>
@@ -1015,6 +1063,7 @@ function ouvrirFiche(id, garderScroll){
   const d = B.demandes.find(x => x.id === id);
   if (!d){ fermerFiche(); return; }
   B.ouverte = id;
+  if (!garderScroll){ marquerVue(id); }
   const sheet = $("#sheet"), st = STATUTS[d.statut] || STATUTS.en_attente;
   const monAvis = (d.avis||[]).find(a => a.membre_email === B.moi.email.toLowerCase()) || {};
   const tri = [...(d.avis||[])].sort((a,b) => (b.updated_at||"").localeCompare(a.updated_at||""));
@@ -1144,6 +1193,7 @@ function ouvrirFiche(id, garderScroll){
 }
 function fermerFiche(){
   B.ouverte = null; $("#overlay").hidden = true; document.body.style.overflow = "";
+  if (B.moi && B.demandes.length) rendreBureau();
 }
 $("#overlay").addEventListener("click", e => { if (e.target.id === "overlay") fermerFiche(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#overlay").hidden) fermerFiche(); });

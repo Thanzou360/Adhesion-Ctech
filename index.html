@@ -175,7 +175,8 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .chip input:checked+span{color:var(--fg);background:color-mix(in srgb,var(--blue) 16%,transparent);box-shadow:inset 0 0 0 1.5px var(--blue)}
 .chip input:focus-visible+span{outline:2px solid var(--cyan);outline-offset:2px}
 .choix{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-@media (max-width:620px){.choix{grid-template-columns:1fr}}
+.choix.choix-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:620px){.choix,.choix.choix-2{grid-template-columns:1fr}}
 .choix label{position:relative;display:grid;gap:4px;padding:14px;border-radius:var(--r-sm);background:var(--bg-2);box-shadow:inset 0 0 0 1px var(--line-2);cursor:pointer;transition:all .15s}
 .choix input{position:absolute;opacity:0}
 .choix b{font-size:15px}
@@ -240,6 +241,15 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .fiche-sub{color:var(--muted);font-size:13.5px}
 .fiche-mot{color:var(--muted);font-size:13.5px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
 .fiche-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;padding-top:10px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.type-tag{font-size:12.5px;font-weight:600;color:var(--muted)}
+.type-tag.t-bureau{color:var(--violet)}
+.vote-res{display:grid;gap:10px;padding:14px;border-radius:var(--r-sm);background:var(--bg-2);box-shadow:inset 0 0 0 1px var(--line)}
+.vote-res p{font-size:14.5px;color:var(--muted)}
+.vote-res .ok{color:var(--ok)} .vote-res .ko{color:var(--bad)}
+.vote-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-weight:600;font-size:14px}
+.jauge{height:6px;border-radius:6px;background:var(--line);overflow:hidden}
+.jauge span{display:block;height:100%;background:var(--grad);border-radius:6px}
+.wa-zone{display:grid;gap:8px}
 .a-voter{font-weight:700;color:var(--blue);font-size:12.5px}
 .tally{display:inline-flex;gap:10px;font:500 12.5px var(--f-mono);font-variant-numeric:tabular-nums}
 .tally i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
@@ -437,7 +447,18 @@ try { var t = localStorage.getItem("ctech-theme"); if (t === "light" || t === "d
       <!-- Étape 4 -->
       <div class="step" data-step="4" hidden>
         <h2>Tes motivations</h2>
-        <div class="field"><label for="f-motivation">Pourquoi veux-tu rejoindre C-Tech ?</label><textarea class="input" id="f-motivation" name="motivation" maxlength="1500" placeholder="Parle de toi, de ce que tu veux apprendre, de ce qui t'attire dans le club…"></textarea><span class="count" id="c-motivation">0 / 80 caractères minimum</span><p class="err" id="e-motivation"></p></div>
+        <fieldset class="field" style="border:0;padding:0;margin:0">
+          <legend class="legend">Tu postules pour</legend>
+          <div class="choix choix-2" style="margin-top:8px">
+            <label><input type="radio" name="type_demande" value="membre"><b>Membre du club</b><span>Participer aux activités, ateliers, projets et événements.</span></label>
+            <label><input type="radio" name="type_demande" value="bureau"><b>Membre du bureau</b><span>Aider à organiser et à faire vivre le club, en plus des activités.</span></label>
+          </div>
+          <p class="err" id="e-type_demande"></p>
+        </fieldset>
+        <div class="field" id="champ-poste" hidden><label for="f-poste">Quel poste du bureau t'intéresse ?</label>
+          <select class="input" id="f-poste" name="poste_souhaite"><option value="">Choisir…</option><option>Communication et réseaux sociaux</option><option>Secrétariat</option><option>Trésorerie</option><option>Organisation des événements</option><option>Formation et projets techniques</option><option>Partenariats</option><option>Je ne sais pas encore</option></select>
+          <p class="err" id="e-poste"></p></div>
+        <div class="field"><label for="f-motivation" id="lbl-motivation">Pourquoi veux-tu rejoindre C-Tech ?</label><textarea class="input" id="f-motivation" name="motivation" maxlength="1500" placeholder="Parle de toi, de ce que tu veux apprendre, de ce qui t'attire dans le club…"></textarea><span class="count" id="c-motivation">0 / 80 caractères minimum</span><p class="err" id="e-motivation"></p></div>
         <div class="field"><label for="f-apport">Qu'est-ce que tu apporteras au club ?</label><textarea class="input" id="f-apport" name="apport" maxlength="1000" style="min-height:100px" placeholder="Une compétence, du temps, des idées de projets, de l'énergie pour organiser…"></textarea><span class="count" id="c-apport">0 / 30 caractères minimum</span><p class="err" id="e-apport"></p></div>
         <div class="row">
           <div class="field"><label for="f-disponibilite">Ta disponibilité</label>
@@ -533,8 +554,8 @@ const CONFIG = {
   /* Alerte « nouvelle demande » aux membres du bureau (service gratuit FormSubmit, sans Gmail à configurer).
      ALERTE_PRINCIPALE reçoit l'e-mail d'activation au premier envoi ; ALERTE_COPIES reçoivent une copie.
      Laisse ALERTE_PRINCIPALE vide pour désactiver. */
-  ALERTE_PRINCIPALE: "",
-  ALERTE_COPIES: []
+  ALERTE_PRINCIPALE: "morelstone15@gmail.com",
+  ALERTE_COPIES: ["axelromain74@gmail.com", "diorzt67@gmail.com", "Henzoreo@gmail.com", "Kamagraiciemegane@gmail.com", "lebambabikeckbrandondilan@gmail.com", "ledouxmec335@gmail.com", "mangamaombouirilucdavid@gmail.com", "ntsalajoe@gmail.com"]
 };
 
 /* Envoie l'alerte au bureau. N'échoue jamais : si l'alerte ne part pas, la demande reste enregistrée. */
@@ -542,10 +563,11 @@ async function alerterBureau(d){
   if (!CONFIG.ALERTE_PRINCIPALE) return false;
   const lien = location.origin + location.pathname + "#bureau";
   const corps = {
-    _subject: `Nouvelle demande d'adhésion : ${d.prenom} ${d.nom}`,
+    _subject: `${estBureau(d) ? "Nouvelle candidature au bureau" : "Nouvelle demande d'adhésion"} : ${d.prenom} ${d.nom}`,
     _template: "table",
     _replyto: d.email,
     "Candidat": `${d.prenom} ${d.nom}`,
+    "Postule pour": typeLabel(d),
     "Référence": d.reference,
     "Études": `${d.filiere} · ${d.niveau} — ${d.etablissement}`,
     "Niveau tech": d.niveau_tech,
@@ -572,18 +594,21 @@ async function alerterBureau(d){
 const MODELES_EMAIL = {
   acceptee: {
     sujet: "Bienvenue au Club C-Tech, {prenom} !",
-    message: "Bonjour {prenom},\n\nBonne nouvelle : ta demande d'adhésion au Club C-Tech a été acceptée. Bienvenue parmi nous !\n\nUn membre du bureau va t'ajouter au groupe WhatsApp du club sur le numéro {telephone} dans les prochains jours. Tu y trouveras les annonces des ateliers, des projets et des événements.\n\nÀ très vite,\nLe bureau du Club C-Tech"
+    message: "Bonjour {prenom},\n\nBonne nouvelle : {objet} a été acceptée. Bienvenue parmi nous !\n\nUn membre du bureau va t'ajouter au groupe WhatsApp du club sur le numéro {telephone} dans les prochains jours. Tu y trouveras les annonces des ateliers, des projets et des événements.\n\nÀ très vite,\nLe bureau du Club C-Tech"
   },
   entretien: {
     sujet: "Ta demande d'adhésion : rencontrons-nous",
-    message: "Bonjour {prenom},\n\nMerci pour ta demande d'adhésion au Club C-Tech. Ton dossier a retenu notre attention et le bureau aimerait te rencontrer pour un court échange avant de prendre sa décision.\n\nUn membre du bureau te contactera sur WhatsApp ({telephone}) pour fixer le jour et l'heure.\n\nÀ bientôt,\nLe bureau du Club C-Tech"
+    message: "Bonjour {prenom},\n\nMerci pour {objet}. Ton dossier a retenu notre attention et le bureau aimerait te rencontrer pour un court échange avant de prendre sa décision.\n\nUn membre du bureau te contactera sur WhatsApp ({telephone}) pour fixer le jour et l'heure.\n\nÀ bientôt,\nLe bureau du Club C-Tech"
   },
   refusee: {
     sujet: "Ta demande d'adhésion au Club C-Tech",
     message: "Bonjour {prenom},\n\nMerci pour l'intérêt que tu portes au Club C-Tech et pour le temps passé sur ta demande.\n\nAprès étude, le bureau ne peut pas retenir ta candidature pour le moment. Cela ne ferme pas la porte : tu peux continuer à participer à nos événements ouverts et déposer une nouvelle demande plus tard.\n\nBonne continuation,\nLe bureau du Club C-Tech"
   }
 };
-const remplir = (t, d) => t.replace(/\{(prenom|nom|reference|telephone)\}/g, (_, k) => d[k] || "");
+const estBureau = d => d.type_demande === "bureau";
+const typeLabel = d => estBureau(d) ? `Membre du bureau${d.poste_souhaite ? " · " + d.poste_souhaite : ""}` : "Membre du club";
+const remplir = (t, d) => t.replace(/\{(prenom|nom|reference|telephone|objet)\}/g, (_, k) =>
+  k === "objet" ? (estBureau(d) ? `ta candidature au bureau du Club C-Tech${d.poste_souhaite && d.poste_souhaite !== "Je ne sais pas encore" ? " (" + d.poste_souhaite + ")" : ""}` : "ta demande d'adhésion au Club C-Tech") : (d[k] || ""));
 
 const DOMAINES = ["Développement web","Développement mobile","Intelligence artificielle & data","Cybersécurité","Réseaux & systèmes","Électronique & robotique","Design UI/UX & graphisme","Vidéo & communication","Bureautique & bases de l'informatique","Entrepreneuriat tech"];
 const STATUTS = {
@@ -600,6 +625,13 @@ const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const chiffres = t => String(t||"").replace(/\D/g,"");
 const cleTel = t => chiffres(t).slice(-8);
+/* Numéro au format WhatsApp : indicatif du Gabon (241) ajouté aux numéros locaux, le 0 initial est conservé */
+function waNumero(t){
+  let n = chiffres(t);
+  if (n.startsWith("00")) n = n.slice(2);
+  if (!n.startsWith("241") && n.length <= 9) n = "241" + n;
+  return n.length >= 10 ? n : "";
+}
 const dateFr = iso => new Date(iso).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
 function ilYa(iso){
   const s = (Date.now() - new Date(iso).getTime())/1000;
@@ -664,11 +696,18 @@ function apiSupabase(sb){
     async accuse(reference){ return CONFIG.EMAILS_ACTIFS ? fonctionEmail({ action:"accuse", reference }) : null; },
     async envoyerEmail(id, sujet, message){ return fonctionEmail({ action:"decision", demande_id:id, sujet, message }); },
     nomMembre: e => membres.get(String(e).toLowerCase())?.nom || e,
+    listeMembres: () => [...membres.values()],
     async deposer(d, blob){
       const id = uuid(), path = `demandes/${id}.jpg`;
       const up = await B().upload(path, blob, { contentType:"image/jpeg", upsert:false });
       if (up.error) throw new Error("La photo n'a pas pu être envoyée. Vérifie ta connexion et réessaie.");
-      const { error } = await sb.from("demandes").insert({ ...d, id, photo_path: path });
+      let { error } = await sb.from("demandes").insert({ ...d, id, photo_path: path });
+      if (error && /type_demande|poste_souhaite/.test(error.message || "")){
+        // colonnes pas encore créées : on enregistre quand même, le type est ajouté à la motivation
+        const { type_demande, poste_souhaite, ...reste } = d;
+        const precision = type_demande === "bureau" ? `[Postule pour le bureau${poste_souhaite ? " : " + poste_souhaite : ""}]\n` : "";
+        ({ error } = await sb.from("demandes").insert({ ...reste, motivation: precision + reste.motivation, id, photo_path: path }));
+      }
       if (error){
         if (error.code === "23505") throw new Error(DOUBLON);
         throw new Error("La demande n'a pas pu être enregistrée. Réessaie dans un instant.");
@@ -729,7 +768,7 @@ function apiDemo(){
   function graine(){
     const j = n => new Date(Date.now() - n*86400000).toISOString();
     return { demandes: [
-      { id:uuid(), exemple:true, reference:"CT-7F3K2", created_at:j(1), prenom:"Ornella", nom:"Mba", telephone:"+241 06 00 00 01", email:"ornella.exemple@gmail.com", etablissement:"IST — Institut Supérieur de Technologie", filiere:"Génie informatique", niveau:"2e année", domaines:["Développement web","Design UI/UX & graphisme"], niveau_tech:"Intermédiaire", projets:"Site vitrine pour la boutique de ma tante, maquettes Figma d'une appli de covoiturage.", motivation:"Je code depuis un an toute seule avec des tutoriels, et j'ai envie d'apprendre avec d'autres passionnés. Le hackathon m'a montré que je progresse beaucoup plus vite en équipe. Je veux aussi présenter mes maquettes à des gens qui peuvent m'aider à les améliorer.", apport:"Je peux aider pour le design des affiches et des sites du club, et animer un atelier Figma pour les débutants.", disponibilite:"Le week-end", source:"Un événement (hackathon, atelier…)", photo_data:avatar("EXEMPLE","#35e0f0","#4a7dff"), statut:"en_attente", note_bureau:null, traite_par:null, traite_le:null,
+      { id:uuid(), exemple:true, reference:"CT-7F3K2", created_at:j(1), prenom:"Ornella", nom:"Mba", type_demande:"bureau", poste_souhaite:"Communication et réseaux sociaux", telephone:"+241 06 00 00 01", email:"ornella.exemple@gmail.com", etablissement:"IST — Institut Supérieur de Technologie", filiere:"Génie informatique", niveau:"2e année", domaines:["Développement web","Design UI/UX & graphisme"], niveau_tech:"Intermédiaire", projets:"Site vitrine pour la boutique de ma tante, maquettes Figma d'une appli de covoiturage.", motivation:"Je code depuis un an toute seule avec des tutoriels, et j'ai envie d'apprendre avec d'autres passionnés. Le hackathon m'a montré que je progresse beaucoup plus vite en équipe. Je veux aussi présenter mes maquettes à des gens qui peuvent m'aider à les améliorer.", apport:"Je peux aider pour le design des affiches et des sites du club, et animer un atelier Figma pour les débutants.", disponibilite:"Le week-end", source:"Un événement (hackathon, atelier…)", photo_data:avatar("EXEMPLE","#35e0f0","#4a7dff"), statut:"en_attente", note_bureau:null, traite_par:null, traite_le:null,
         avis:[{membre_email:"president@ctech", vote:"pour", commentaire:"Profil motivé, déjà venue au hackathon.", updated_at:j(0.5)}] },
       { id:uuid(), exemple:true, reference:"CT-Q8M4R", created_at:j(3), prenom:"Kévin", nom:"Ndong", telephone:"+241 07 00 00 02", email:"kevin.exemple@gmail.com", etablissement:"IST — Institut Supérieur de Technologie", filiere:"Réseaux et télécoms", niveau:"1re année", domaines:["Cybersécurité","Réseaux & systèmes"], niveau_tech:"Débutant", projets:"", motivation:"La cybersécurité me passionne depuis que le compte Facebook de mon frère a été piraté. Je veux comprendre comment on protège les systèmes et participer aux challenges CTF avec le club.", apport:"De la motivation, et je peux aider à l'organisation logistique des événements.", disponibilite:"Variable selon mes cours", source:"Un membre du club", photo_data:avatar("EXEMPLE","#4a7dff","#a34cf4"), statut:"entretien", note_bureau:"Entretien prévu après les cours, jeudi.", traite_par:"Président (exemple)", traite_le:j(1),
         avis:[{membre_email:"president@ctech", vote:"reserve", commentaire:"À rencontrer pour mieux connaître sa disponibilité.", updated_at:j(2)},{membre_email:"sg@ctech", vote:"pour", commentaire:"", updated_at:j(2)}] },
@@ -756,6 +795,7 @@ function apiDemo(){
       return { ok:true, to:d.email, simule:true };
     },
     nomMembre: e => NOMS[e] || e,
+    listeMembres: () => Object.entries(NOMS).map(([email, nom]) => ({ email, nom })),
     async deposer(d, blob, dataUrl){
       await attente(600);
       const db = lire();
@@ -848,6 +888,9 @@ function valider(n){
     v("niveau_tech", $("input[name=niveau_tech]:checked") ? "" : "Choisis ton niveau en tech.");
   }
   if (n === 4){
+    const type = $("input[name=type_demande]:checked")?.value;
+    v("type_demande", type ? "" : "Choisis si tu postules comme membre du club ou membre du bureau.");
+    if (type === "bureau") v("poste", val("poste") ? "" : "Choisis le poste qui t'intéresse (ou « Je ne sais pas encore »).");
     const lm = val("motivation").length, la = val("apport").length;
     v("motivation", lm < 80 ? `Développe un peu plus tes motivations (encore ${80-lm} caractères).` : "");
     v("apport", la < 30 ? `Dis-en un peu plus (encore ${30-la} caractères).` : "");
@@ -866,6 +909,7 @@ form.addEventListener("input", e => {
   const id = e.target.id?.replace("f-",""); if (id && $("#e-"+id)?.textContent) erreur(id, "");
   if (e.target.name === "domaines") erreur("domaines","");
   if (e.target.name === "niveau_tech") erreur("niveau_tech","");
+  if (e.target.id === "f-poste") erreur("poste","");
 });
 function compteur(champ, min){
   const n = val(champ).length, c = $("#c-"+champ);
@@ -873,6 +917,11 @@ function compteur(champ, min){
   c.classList.toggle("ok", n >= min);
 }
 $("#f-motivation").addEventListener("input", () => compteur("motivation", 80));
+$$("input[name=type_demande]").forEach(r => r.addEventListener("change", () => {
+  const bureau = r.value === "bureau" && r.checked;
+  $("#champ-poste").hidden = !bureau; erreur("type_demande",""); erreur("poste","");
+  $("#lbl-motivation").textContent = bureau ? "Pourquoi veux-tu rejoindre le bureau de C-Tech ?" : "Pourquoi veux-tu rejoindre C-Tech ?";
+}));
 $("#f-apport").addEventListener("input", () => compteur("apport", 30));
 
 /* photo */
@@ -917,7 +966,9 @@ form.addEventListener("submit", async e => {
     domaines: $$("input[name=domaines]:checked").map(i => i.value),
     niveau_tech: $("input[name=niveau_tech]:checked").value,
     projets: val("projets") || null, motivation: val("motivation"), apport: val("apport"),
-    disponibilite: val("disponibilite"), source: val("source") || null
+    disponibilite: val("disponibilite"), source: val("source") || null,
+    type_demande: $("input[name=type_demande]:checked").value,
+    poste_souhaite: $("input[name=type_demande]:checked").value === "bureau" ? val("poste") : null
   };
   try {
     await api.deposer(d, photo.blob, photo.dataUrl);
@@ -1015,7 +1066,7 @@ function rendreBureau(){
 function rendreGrille(){
   const q = B.q.trim().toLowerCase();
   const liste = B.demandes.filter(d => (B.filtre === "toutes" || d.statut === B.filtre) &&
-    (!q || `${d.prenom} ${d.nom} ${d.filiere} ${d.etablissement} ${d.reference} ${(d.domaines||[]).join(" ")}`.toLowerCase().includes(q)));
+    (!q || `${typeLabel(d)} ${d.prenom} ${d.nom} ${d.filiere} ${d.etablissement} ${d.reference} ${(d.domaines||[]).join(" ")}`.toLowerCase().includes(q)));
   if (!liste.length){
     $("#grille-zone").innerHTML = B.demandes.length
       ? `<div class="vide"><b>Aucune demande ici</b><span>Change de filtre ou de recherche.</span></div>`
@@ -1031,11 +1082,36 @@ function rendreGrille(){
         <div class="fiche-ref"><span>${esc(d.reference)}</span><span>${esc(ilYa(d.created_at))}</span></div>
         <h3>${esc(d.prenom)} ${esc(d.nom)}</h3>
         <p class="fiche-sub">${esc(d.filiere)} · ${esc(d.niveau)}</p>
+        <p class="type-tag${estBureau(d) ? " t-bureau" : ""}">${esc(typeLabel(d))}</p>
         <p class="fiche-mot">${esc(d.motivation)}</p>
         <div class="fiche-foot"><span class="tally" title="Avis du bureau : pour, réservé, contre"><span><i class="d-pour"></i>${c.pour}</span><span><i class="d-reserve"></i>${c.reserve}</span><span><i class="d-contre"></i>${c.contre}</span></span>${avisManque ? '<span class="a-voter">Ton avis manque</span>' : `<span>${esc(d.niveau_tech)}</span>`}</div>
       </div></button>`;
   }).join("")}</div>`;
   $$(".fiche").forEach(f => f.addEventListener("click", () => ouvrirFiche(f.dataset.id)));
+}
+
+/* Résultat du vote : majorité = plus de la moitié des membres du bureau */
+function resultatVote(d){
+  const membres = api.listeMembres();
+  const total = Math.max(membres.length, 1), seuil = Math.floor(total / 2) + 1;
+  const c = compteAvis(d), votants = new Set((d.avis||[]).map(a => a.membre_email.toLowerCase()));
+  const manquent = membres.filter(m => !votants.has(m.email.toLowerCase())).map(m => m.nom || m.email);
+  let verdict = null;
+  if (c.pour >= seuil) verdict = "acceptee"; else if (c.contre >= seuil) verdict = "refusee";
+  return { total, seuil, c, nbVotes: votants.size, manquent, verdict };
+}
+function blocVote(d){
+  const r = resultatVote(d), pct = Math.round(100 * r.nbVotes / r.total);
+  const txt = r.verdict === "acceptee" ? `<b class="ok">Majorité atteinte : le bureau accepte</b> (${r.c.pour} « Pour » sur ${r.total} membres).`
+    : r.verdict === "refusee" ? `<b class="ko">Majorité atteinte : le bureau refuse</b> (${r.c.contre} « Contre » sur ${r.total} membres).`
+    : `Pas encore de majorité. Il faut <b>${r.seuil} votes « Pour »</b> sur ${r.total} pour accepter (ou ${r.seuil} « Contre » pour refuser).`;
+  return `<div class="vote-res">
+    <div class="vote-top"><span>${r.nbVotes} / ${r.total} membres ont voté</span><span class="tally"><span><i class="d-pour"></i>${r.c.pour}</span><span><i class="d-reserve"></i>${r.c.reserve}</span><span><i class="d-contre"></i>${r.c.contre}</span></span></div>
+    <div class="jauge"><span style="width:${pct}%"></span></div>
+    <p>${txt}</p>
+    ${r.manquent.length && r.manquent.length < r.total ? `<p class="trace">Pas encore voté : ${r.manquent.map(esc).join(", ")}</p>` : ""}
+    ${r.verdict && d.statut !== r.verdict ? `<div class="btns"><button type="button" class="btn btn-primary btn-sm" id="btn-appliquer" data-v="${r.verdict}">${r.verdict === "acceptee" ? "Passer à la décision : accepter" : "Passer à la décision : ne pas retenir"}</button></div>` : ""}
+  </div>`;
 }
 
 function resumeWhatsApp(d){
@@ -1046,6 +1122,7 @@ function resumeWhatsApp(d){
     `*Nom :* ${d.prenom} ${d.nom}`,
     `*Parcours :* ${d.filiere}, ${d.niveau} — ${d.etablissement}`,
     `*Domaines :* ${(d.domaines||[]).join(", ")}`,
+    `*Postule pour :* ${typeLabel(d)}`,
     `*Niveau tech :* ${d.niveau_tech}`,
     `*Disponibilité :* ${d.disponibilite}`,
     ``,
@@ -1078,10 +1155,11 @@ function ouvrirFiche(id, garderScroll){
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span class="pill st-${esc(d.statut)}">${esc(st.label)}</span>${d.exemple?'<span class="badge-ex">Exemple</span>':""}</div>
           <h2 id="sheet-titre">${esc(d.prenom)} ${esc(d.nom)}</h2>
           <dl class="meta">
-            <dt>WhatsApp</dt><dd><span class="tel">${esc(d.telephone)}</span>${waNum.length >= 8 ? ` · <a href="https://wa.me/${esc(waNum.length===8?"241"+waNum:waNum)}" target="_blank" rel="noopener">Écrire</a>` : ""}</dd>
+            <dt>WhatsApp</dt><dd><span class="tel">${esc(d.telephone)}</span>${waNumero(d.telephone) ? ` · <a href="https://wa.me/${esc(waNumero(d.telephone))}" target="_blank" rel="noopener">Écrire</a>` : ""}</dd>
             ${d.email ? `<dt>E-mail</dt><dd>${esc(d.email)}</dd>` : ""}
             <dt>Études</dt><dd>${esc(d.filiere)} · ${esc(d.niveau)}</dd>
             <dt>Établissement</dt><dd>${esc(d.etablissement)}</dd>
+            <dt>Postule pour</dt><dd><b>${esc(typeLabel(d))}</b></dd>
             <dt>Niveau tech</dt><dd>${esc(d.niveau_tech)}</dd>
             <dt>Disponibilité</dt><dd>${esc(d.disponibilite)}</dd>
             ${d.source ? `<dt>A connu le club</dt><dd>${esc(d.source)}</dd>` : ""}
@@ -1095,6 +1173,7 @@ function ouvrirFiche(id, garderScroll){
 
       <div class="carte">
         <h3>Avis du bureau</h3>
+        ${blocVote(d)}
         ${tri.length ? `<ul class="avis-liste">${tri.map(a => `<li><div class="who"><span>${esc(api.nomMembre(a.membre_email))}</span><span class="v v-${esc(a.vote)}">${esc(VOTES[a.vote]||a.vote)}</span></div>${a.commentaire ? `<p>${esc(a.commentaire)}</p>` : ""}</li>`).join("")}</ul>` : `<p class="trace">Aucun avis pour l'instant. Donne le tien en premier.</p>`}
         <div class="field"><span class="legend">Ton avis</span>
           <div class="seg" role="radiogroup" aria-label="Ton avis">${Object.entries(VOTES).map(([k,l]) => `<label class="s-${k}"><input type="radio" name="mon-vote" value="${k}" ${monAvis.vote===k?"checked":""}><span>${l}</span></label>`).join("")}</div>
@@ -1116,7 +1195,10 @@ function ouvrirFiche(id, garderScroll){
             <div class="field"><label for="mail-message">Message</label><textarea class="input" id="mail-message" style="min-height:200px" maxlength="5000"></textarea></div>
           </div>
         </div>
-        ${!api.emails ? `<p class="trace">L'envoi d'e-mails n'est pas encore activé (voir le guide de mise en ligne).</p>` : ""}
+        <div class="wa-zone" id="zone-wa">
+          <p class="trace">Après avoir enregistré, préviens le candidat : le message est déjà écrit, il suffit d'appuyer sur Envoyer dans WhatsApp.</p>
+          <div class="btns"><a class="btn btn-ghost btn-sm" id="btn-wa-candidat" href="#" target="_blank" rel="noopener">Prévenir sur WhatsApp</a></div>
+        </div>
         ${d.email_envoye_le ? `<p class="trace mail-trace">E-mail « ${esc(STATUTS[d.email_statut]?.label || d.email_statut)} » envoyé ${esc(ilYa(d.email_envoye_le))}${d.email_envoye_par ? ` par ${esc(d.email_envoye_par)}` : ""}.</p>` : ""}
         <p class="err" id="e-decision"></p>
         <div class="btns"><button type="button" class="btn btn-primary btn-sm" id="btn-decision">Enregistrer la décision</button></div>
@@ -1157,8 +1239,19 @@ function ouvrirFiche(id, garderScroll){
     $("#mail-edit").hidden = !caseMail.checked;
   }
   caseMail.addEventListener("change", () => $("#mail-edit").hidden = !caseMail.checked);
-  $$("input[name=statut]", sheet).forEach(r => r.addEventListener("change", majZoneMail));
-  majZoneMail();
+  function majWhatsApp(){
+    const s = $("input[name=statut]:checked", sheet)?.value, modele = MODELES_EMAIL[s];
+    const wa = waNumero(d.telephone);
+    $("#zone-wa").hidden = !modele || !wa;
+    if (modele) $("#btn-wa-candidat").href = `https://wa.me/${wa}?text=${encodeURIComponent(remplir(modele.message, d))}`;
+  }
+  $$("input[name=statut]", sheet).forEach(r => r.addEventListener("change", () => { majZoneMail(); majWhatsApp(); }));
+  majZoneMail(); majWhatsApp();
+  $("#btn-appliquer")?.addEventListener("click", e => {
+    const r = $(`input[name=statut][value="${e.currentTarget.dataset.v}"]`, sheet);
+    r.checked = true; r.dispatchEvent(new Event("change"));
+    r.closest(".carte").scrollIntoView({ block:"start", behavior:"smooth" });
+  });
 
   $("#btn-decision").addEventListener("click", async () => {
     const s = $("input[name=statut]:checked", sheet).value;

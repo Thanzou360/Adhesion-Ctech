@@ -56,6 +56,9 @@ create table if not exists public.demandes (
   apport          text not null,                 -- ce qu'il/elle apportera au club
   disponibilite   text not null,
   source          text,                          -- comment il/elle a connu le club
+  type_demande    text not null default 'membre' -- 'membre' (club) ou 'bureau'
+                    check (type_demande in ('membre','bureau')),
+  poste_souhaite  text,                          -- poste visé si candidature au bureau
 
   photo_path      text not null,                 -- chemin dans le stockage « adhesions »
 
@@ -78,6 +81,8 @@ create table if not exists public.demandes (
 -- Mise à jour d'une table créée avec une ancienne version du script
 alter table public.demandes add column if not exists accuse_envoye_le timestamptz;
 alter table public.demandes add column if not exists bureau_notifie_le timestamptz;
+alter table public.demandes add column if not exists type_demande text not null default 'membre';
+alter table public.demandes add column if not exists poste_souhaite text;
 alter table public.demandes add column if not exists email_envoye_le  timestamptz;
 alter table public.demandes add column if not exists email_statut     text;
 alter table public.demandes add column if not exists email_envoye_par text;

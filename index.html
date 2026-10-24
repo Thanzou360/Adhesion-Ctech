@@ -158,7 +158,8 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .portrait{position:relative;width:200px;max-width:100%;aspect-ratio:1;border-radius:50%;background:var(--bg-2);border:2px dashed var(--line-2);display:grid;place-items:center;overflow:hidden;transition:border-color .15s}
 .portrait.drag{border-color:var(--cyan)}
 .portrait.has{border:3px solid transparent;background:linear-gradient(var(--bg-2),var(--bg-2)) padding-box,var(--grad) border-box}
-.portrait img{width:100%;height:100%;object-fit:cover}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.portrait.has svg{display:none}
 .portrait svg{width:62%;color:var(--line-2)}
 .photo-actions{display:flex;gap:10px;flex-wrap:wrap}
 @media (max-width:560px){.photo-actions{justify-content:center}}
@@ -200,6 +201,7 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .narrow h1{font:700 clamp(26px,4vw,36px)/1.15 var(--f-display)}
 .narrow .lead{color:var(--muted)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:clamp(18px,3vw,26px);display:grid;gap:18px}
+.avec-ref summary{cursor:pointer;color:var(--cyan);font-weight:600;font-size:14.5px}
 .resultat{display:grid;gap:10px;padding:18px;border-radius:var(--r);background:var(--bg-2);box-shadow:inset 0 0 0 1px var(--line-2)}
 .resultat p{color:var(--muted)}
 
@@ -495,10 +497,13 @@ try { var t = localStorage.getItem("ctech-theme"); if (t === "light" || t === "d
 <section id="vue-suivi" class="wrap" hidden>
   <div class="narrow">
     <div><p class="eyebrow">Suivi</p><h1 style="margin-top:10px">Où en est ma demande ?</h1></div>
-    <p class="lead">Saisis la référence reçue après l'envoi (par exemple CT-7F3K2) et ton numéro WhatsApp.</p>
+    <p class="lead">Indique le numéro WhatsApp et l'adresse e-mail que tu as mis dans ta demande. Tu n'as pas besoin de ta référence.</p>
     <form class="panel" id="form-suivi" novalidate>
-      <div class="field"><label for="s-ref">Référence</label><input class="input" id="s-ref" autocomplete="off" placeholder="CT-XXXXX" style="font-family:var(--f-mono);text-transform:uppercase" maxlength="12"></div>
-      <div class="field"><label for="s-tel">Numéro WhatsApp</label><input class="input" id="s-tel" type="tel" inputmode="tel" placeholder="+241 0X XX XX XX" maxlength="20"></div>
+      <div class="field"><label for="s-tel">Numéro WhatsApp</label><input class="input" id="s-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="+241 0X XX XX XX" maxlength="20"></div>
+      <div class="field"><label for="s-email">E-mail</label><input class="input" id="s-email" type="email" inputmode="email" autocomplete="email" placeholder="prenom.nom@gmail.com" maxlength="120"></div>
+      <details class="avec-ref"><summary>J'ai ma référence (CT-XXXXX)</summary>
+        <div class="field" style="margin-top:12px"><label for="s-ref">Référence <span class="opt">(remplace l'e-mail)</span></label><input class="input" id="s-ref" autocomplete="off" placeholder="CT-XXXXX" style="font-family:var(--f-mono);text-transform:uppercase" maxlength="12"></div>
+      </details>
       <p class="err" id="e-suivi"></p>
       <button class="btn btn-primary" type="submit" id="btn-suivi">Voir le statut</button>
       <div class="resultat" id="suivi-resultat" hidden></div>
@@ -554,14 +559,53 @@ const CONFIG = {
   /* Alerte « nouvelle demande » aux membres du bureau (service gratuit FormSubmit, sans Gmail à configurer).
      ALERTE_PRINCIPALE reçoit l'e-mail d'activation au premier envoi ; ALERTE_COPIES reçoivent une copie.
      Laisse ALERTE_PRINCIPALE vide pour désactiver. */
-  ALERTE_PRINCIPALE: "morelstone15@gmail.com",
-  ALERTE_COPIES: ["axelromain74@gmail.com", "diorzt67@gmail.com", "Henzoreo@gmail.com", "Kamagraiciemegane@gmail.com", "lebambabikeckbrandondilan@gmail.com", "ledouxmec335@gmail.com", "mangamaombouirilucdavid@gmail.com", "ntsalajoe@gmail.com"]
+  ALERTE_PRINCIPALE: "axelromain74@gmail.com",
+  ALERTE_COPIES: ["morelstone15@gmail.com", "diorzt67@gmail.com", "Henzoreo@gmail.com", "Kamagraiciemegane@gmail.com", "lebambabikeckbrandondilan@gmail.com", "ledouxmec335@gmail.com", "mangamaombouirilucdavid@gmail.com", "ntsalajoe@gmail.com"],
+
+  /* EmailJS : envoie les e-mails depuis un Gmail connecté en un clic sur emailjs.com.
+     Quand ces 3 valeurs sont remplies, il sert à tout : accusé de réception, alerte au bureau, décisions. */
+  EMAILJS: { SERVICE_ID: "", TEMPLATE_ID: "", PUBLIC_KEY: "" }
 };
+
+const emailjsPret = () => !!(CONFIG.EMAILJS.SERVICE_ID && CONFIG.EMAILJS.TEMPLATE_ID && CONFIG.EMAILJS.PUBLIC_KEY);
+let emailjsCharge = null;
+function chargerEmailJS(){
+  if (window.emailjs) return Promise.resolve(window.emailjs);
+  return emailjsCharge ??= new Promise((ok, ko) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js";
+    sc.onload = () => ok(window.emailjs); sc.onerror = () => { emailjsCharge = null; ko(new Error("Le service d'e-mail n'a pas pu se charger. Vérifie ta connexion.")); };
+    document.head.appendChild(sc);
+  });
+}
+/* Un seul modèle EmailJS : destinataire {{to_email}}, objet {{sujet}}, contenu {{{message_html}}} */
+async function envoyerEmailJS({ to, sujet, message, reference }){
+  const ej = await chargerEmailJS();
+  const lienSuivi = location.origin + location.pathname + "#suivi";
+  const html = esc(message).replace(/\r?\n/g, "<br>") +
+    (reference ? `<br><br><b>Référence :</b> ${esc(reference)}<br><a href="${esc(lienSuivi)}">Suivre ma demande</a>` : "");
+  try {
+    await ej.send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID,
+      { to_email: to, sujet, message, message_html: html, reference: reference || "" },
+      { publicKey: CONFIG.EMAILJS.PUBLIC_KEY });
+  } catch(err){
+    throw new Error("L'e-mail n'est pas parti" + (err?.text ? ` (${err.text})` : "") + ".");
+  }
+}
+const membresAlerte = () => [CONFIG.ALERTE_PRINCIPALE, ...CONFIG.ALERTE_COPIES].filter(Boolean);
 
 /* Envoie l'alerte au bureau. N'échoue jamais : si l'alerte ne part pas, la demande reste enregistrée. */
 async function alerterBureau(d){
   if (!CONFIG.ALERTE_PRINCIPALE) return false;
   const lien = location.origin + location.pathname + "#bureau";
+  if (emailjsPret()){
+    const texte = `Une nouvelle demande vient d'arriver sur la plateforme d'adhésion.\n\n` +
+      `Candidat : ${d.prenom} ${d.nom}\nPostule pour : ${typeLabel(d)}\nÉtudes : ${d.filiere} · ${d.niveau} — ${d.etablissement}\n` +
+      `Niveau tech : ${d.niveau_tech}\nDomaines : ${d.domaines.join(", ")}\nDisponibilité : ${d.disponibilite}\n\n` +
+      `Motivation :\n${d.motivation}\n\nCe qu'il/elle apportera :\n${d.apport}\n\nVoir la photo et voter : ${lien}`;
+    try { await envoyerEmailJS({ to: membresAlerte().join(", "), sujet: `${estBureau(d) ? "Nouvelle candidature au bureau" : "Nouvelle demande d'adhésion"} : ${d.prenom} ${d.nom}`, message: texte }); return true; }
+    catch(e){ return false; }
+  }
   const corps = {
     _subject: `${estBureau(d) ? "Nouvelle candidature au bureau" : "Nouvelle demande d'adhésion"} : ${d.prenom} ${d.nom}`,
     _template: "table",
@@ -692,9 +736,16 @@ function apiSupabase(sb){
   }
   return {
     mode:"supabase",
-    emails: !!CONFIG.EMAILS_ACTIFS,
+    emails: !!CONFIG.EMAILS_ACTIFS || emailjsPret(),
     async accuse(reference){ return CONFIG.EMAILS_ACTIFS ? fonctionEmail({ action:"accuse", reference }) : null; },
-    async envoyerEmail(id, sujet, message){ return fonctionEmail({ action:"decision", demande_id:id, sujet, message }); },
+    async envoyerEmail(id, sujet, message){
+      if (!emailjsPret()) return fonctionEmail({ action:"decision", demande_id:id, sujet, message });
+      const { data: d, error } = await sb.from("demandes").select("email, reference, statut").eq("id", id).single();
+      if (error || !d) throw new Error("Demande introuvable.");
+      await envoyerEmailJS({ to: d.email, sujet, message, reference: d.reference });
+      await sb.from("demandes").update({ email_envoye_le: new Date().toISOString(), email_statut: d.statut, email_envoye_par: moi.nom }).eq("id", id);
+      return { ok:true, to:d.email };
+    },
     nomMembre: e => membres.get(String(e).toLowerCase())?.nom || e,
     listeMembres: () => [...membres.values()],
     async deposer(d, blob){
@@ -716,6 +767,11 @@ function apiSupabase(sb){
     async suivi(ref, tel){
       const { data, error } = await sb.rpc("suivi_demande", { p_reference: ref, p_telephone: tel });
       if (error) throw new Error("Le suivi est indisponible pour le moment. Réessaie plus tard.");
+      return data?.[0] || null;
+    },
+    async suiviContact(tel, mail){
+      const { data, error } = await sb.rpc("suivi_contact", { p_telephone: tel, p_email: mail });
+      if (error) throw new Error("Le suivi par e-mail n'est pas encore disponible. Utilise ta référence (CT-XXXXX) ou contacte le bureau sur WhatsApp.");
       return data?.[0] || null;
     },
     async session(){
@@ -808,6 +864,11 @@ function apiDemo(){
       const d = lire().demandes.find(x => x.reference.toUpperCase() === ref.trim().toUpperCase() && cleTel(x.telephone) === cleTel(tel));
       return d ? { prenom:d.prenom, statut:d.statut, created_at:d.created_at } : null;
     },
+    async suiviContact(tel, mail){
+      await attente(300);
+      const d = lire().demandes.find(x => cleTel(x.telephone) === cleTel(tel) && String(x.email).toLowerCase() === mail.trim().toLowerCase());
+      return d ? { prenom:d.prenom, statut:d.statut, created_at:d.created_at, reference:d.reference } : null;
+    },
     async session(){ return moi; },
     async login(){ moi = MOI; return moi; },
     async logout(){ moi = null; },
@@ -844,6 +905,19 @@ function route(){
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange", route);
+function allerAccueil(e){
+  e.preventDefault();
+  if (!$("#overlay").hidden) fermerFiche();
+  if (!$("#merci").hidden){            // après un envoi : on remet un formulaire vierge
+    form.reset(); photo = null; $("#photo-preview").hidden = true; $("#photo-guide").removeAttribute("hidden");
+    $("#portrait").classList.remove("has"); $("#champ-poste").hidden = true; compteur("motivation",80); compteur("apport",30);
+    $("#merci").hidden = true; form.hidden = false; afficherEtape(1);
+  }
+  if (location.hash) history.pushState(null, "", location.pathname + location.search);
+  route();
+}
+$$(".brand, [data-nav=candidat]").forEach(a => a.addEventListener("click", allerAccueil));
+window.addEventListener("popstate", route);
 
 /* =====================================================================
    FORMULAIRE CANDIDAT
@@ -940,7 +1014,7 @@ async function preparerPhoto(file){
     const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
     const dataUrl = c.toDataURL("image/jpeg", 0.85);
     photo = { blob, dataUrl };
-    $("#photo-preview").src = dataUrl; $("#photo-preview").hidden = false; $("#photo-guide").hidden = true;
+    $("#photo-preview").src = dataUrl; $("#photo-preview").hidden = false; $("#photo-guide").setAttribute("hidden","");
     $("#portrait").classList.add("has");
   } catch(e){
     erreur("photo","Ce format de photo n'a pas pu être lu. Choisis une photo JPG ou PNG.");
@@ -974,13 +1048,20 @@ form.addEventListener("submit", async e => {
     await api.deposer(d, photo.blob, photo.dataUrl);
     const me = $("#merci-email"); me.hidden = true;
     if (api.mode === "supabase") alerterBureau(d);
-    api.accuse(reference).then(r => {
+    if (emailjsPret() && api.mode === "supabase"){
+      envoyerEmailJS({ to: d.email, reference,
+        sujet: "Ta demande d'adhésion au Club C-Tech est bien reçue",
+        message: `Bonjour ${d.prenom},\n\nNous avons bien reçu ${remplir("{objet}", d)}. Merci pour ton intérêt !\n\nLe bureau va lire ton dossier, ta photo et tes motivations. Tu recevras notre réponse à cette adresse e-mail.\n\nTu peux suivre ta demande à tout moment avec ton numéro WhatsApp et ton e-mail.\n\nÀ bientôt,\nLe bureau du Club C-Tech` })
+        .then(() => { me.textContent = `Un e-mail de confirmation a été envoyé à ${d.email}. Pense à regarder dans les spams.`; me.hidden = false; })
+        .catch(() => {});
+    } else api.accuse(reference).then(r => {
       if (r?.ok){ me.textContent = `Un e-mail de confirmation a été envoyé à ${d.email}. Pense à regarder dans les spams.`; me.hidden = false; }
     }).catch(() => {});
     form.hidden = true;
     $("#merci-titre").textContent = `Demande envoyée, ${d.prenom} !`;
     $("#merci-ref").textContent = reference;
-    $("#s-ref").value = reference; $("#s-tel").value = d.telephone;
+    $("#s-ref").value = reference; $("#s-tel").value = d.telephone; $("#s-email").value = d.email;
+    try { localStorage.setItem("ctech-ma-demande", JSON.stringify({ reference, telephone:d.telephone, email:d.email })); } catch(e){}
     $("#merci").hidden = false;
     $("#dossier").scrollIntoView({block:"start",behavior:"smooth"});
   } catch(err){
@@ -994,16 +1075,18 @@ $("#btn-copier-ref").addEventListener("click", () => copier($("#merci-ref").text
    ===================================================================== */
 $("#form-suivi").addEventListener("submit", async e => {
   e.preventDefault();
-  const ref = $("#s-ref").value.trim(), tel = $("#s-tel").value.trim(), r = $("#suivi-resultat");
+  const ref = $("#s-ref").value.trim(), tel = $("#s-tel").value.trim(), mail = $("#s-email").value.trim(), r = $("#suivi-resultat");
   $("#e-suivi").textContent = ""; r.hidden = true;
-  if (!/^CT-[A-Z0-9]{5}$/i.test(ref)) return $("#e-suivi").textContent = "La référence ressemble à CT-7F3K2.";
   if (chiffres(tel).length < 8) return $("#e-suivi").textContent = "Indique le numéro WhatsApp utilisé dans ta demande.";
+  if (ref && !/^CT-[A-Z0-9]{5}$/i.test(ref)) return $("#e-suivi").textContent = "La référence ressemble à CT-7F3K2. Tu peux aussi la laisser vide et utiliser ton e-mail.";
+  if (!ref && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return $("#e-suivi").textContent = "Indique l'adresse e-mail utilisée dans ta demande.";
   const b = $("#btn-suivi"); b.disabled = true;
   try {
-    const s = await api.suivi(ref, tel);
-    if (!s){ $("#e-suivi").textContent = "Aucune demande ne correspond à cette référence et à ce numéro. Vérifie les deux."; return; }
+    const s = ref ? await api.suivi(ref, tel) : await api.suiviContact(tel, mail);
+    if (!s){ $("#e-suivi").textContent = ref ? "Aucune demande ne correspond à cette référence et à ce numéro. Vérifie les deux, ou essaie avec ton e-mail."
+                                             : "Aucune demande ne correspond à ce numéro et à cet e-mail. Vérifie qu'ils sont écrits comme dans ta demande."; return; }
     const st = STATUTS[s.statut] || STATUTS.en_attente;
-    r.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><b>Bonjour ${esc(s.prenom)}</b><span class="pill st-${esc(s.statut)}">${esc(st.label)}</span></div><p>${esc(st.suivi)}</p><p class="trace">Demande déposée le ${esc(dateFr(s.created_at))}</p>`;
+    r.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><b>Bonjour ${esc(s.prenom)}</b><span class="pill st-${esc(s.statut)}">${esc(st.label)}</span></div><p>${esc(st.suivi)}</p><p class="trace">Demande déposée le ${esc(dateFr(s.created_at))}${s.reference ? ` · Référence ${esc(s.reference)}` : ""}</p>`;
     r.hidden = false;
   } catch(err){ $("#e-suivi").textContent = err.message; }
   finally { b.disabled = false; }
@@ -1311,6 +1394,11 @@ $("#btn-theme").addEventListener("click", () => {
   majBoutonTheme();
 });
 majBoutonTheme();
+
+try {
+  const m = JSON.parse(localStorage.getItem("ctech-ma-demande") || "null");
+  if (m){ $("#s-tel").value = m.telephone || ""; $("#s-email").value = m.email || ""; $("#s-ref").value = m.reference || ""; }
+} catch(e){}
 
 afficherEtape(1);
 route();

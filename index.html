@@ -578,15 +578,15 @@ function chargerEmailJS(){
     document.head.appendChild(sc);
   });
 }
-/* Un seul modèle EmailJS : destinataire {{to_email}}, objet {{sujet}}, contenu {{{message_html}}} */
-async function envoyerEmailJS({ to, sujet, message, reference }){
+/* Un seul modèle EmailJS : To {{to_email}}, Bcc {{bcc}}, objet {{sujet}}, contenu {{{message_html}}} */
+async function envoyerEmailJS({ to, sujet, message, reference, bcc }){
   const ej = await chargerEmailJS();
   const lienSuivi = location.origin + location.pathname + "#suivi";
   const html = esc(message).replace(/\r?\n/g, "<br>") +
     (reference ? `<br><br><b>Référence :</b> ${esc(reference)}<br><a href="${esc(lienSuivi)}">Suivre ma demande</a>` : "");
   try {
     await ej.send(CONFIG.EMAILJS.SERVICE_ID, CONFIG.EMAILJS.TEMPLATE_ID,
-      { to_email: to, sujet, message, message_html: html, reference: reference || "" },
+      { to_email: to, bcc: bcc || "", sujet, message, message_html: html, reference: reference || "" },
       { publicKey: CONFIG.EMAILJS.PUBLIC_KEY });
   } catch(err){
     throw new Error("L'e-mail n'est pas parti" + (err?.text ? ` (${err.text})` : "") + ".");
@@ -603,7 +603,7 @@ async function alerterBureau(d){
       `Candidat : ${d.prenom} ${d.nom}\nPostule pour : ${typeLabel(d)}\nÉtudes : ${d.filiere} · ${d.niveau} — ${d.etablissement}\n` +
       `Niveau tech : ${d.niveau_tech}\nDomaines : ${d.domaines.join(", ")}\nDisponibilité : ${d.disponibilite}\n\n` +
       `Motivation :\n${d.motivation}\n\nCe qu'il/elle apportera :\n${d.apport}\n\nVoir la photo et voter : ${lien}`;
-    try { await envoyerEmailJS({ to: membresAlerte().join(", "), sujet: `${estBureau(d) ? "Nouvelle candidature au bureau" : "Nouvelle demande d'adhésion"} : ${d.prenom} ${d.nom}`, message: texte }); return true; }
+    try { const [premier, ...autres] = membresAlerte(); await envoyerEmailJS({ to: premier, bcc: autres.join(","), sujet: `${estBureau(d) ? "Nouvelle candidature au bureau" : "Nouvelle demande d'adhésion"} : ${d.prenom} ${d.nom}`, message: texte }); return true; }
     catch(e){ return false; }
   }
   const corps = {

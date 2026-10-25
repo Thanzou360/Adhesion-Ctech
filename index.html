@@ -252,6 +252,12 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .jauge{height:6px;border-radius:6px;background:var(--line);overflow:hidden}
 .jauge span{display:block;height:100%;background:var(--grad);border-radius:6px}
 .wa-zone{display:grid;gap:8px}
+.engagement{display:grid;gap:12px;padding:16px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 8%,var(--bg-2));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 40%,transparent)}
+.engagement h3{font:700 16px var(--f-body);color:var(--fg)}
+.engagement p:not(.err){color:var(--muted);font-size:14.5px}
+.engagement ul{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--muted);font-size:14.5px}
+.engagement ul b{color:var(--fg)}
+.opt.requis{color:var(--warn);font-weight:600}
 .a-voter{font-weight:700;color:var(--blue);font-size:12.5px}
 .tally{display:inline-flex;gap:10px;font:500 12.5px var(--f-mono);font-variant-numeric:tabular-nums}
 .tally i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
@@ -443,7 +449,7 @@ try { var t = localStorage.getItem("ctech-theme"); if (t === "light" || t === "d
           </div>
           <p class="err" id="e-niveau_tech"></p>
         </fieldset>
-        <div class="field"><label for="f-projets">Projets réalisés ou liens <span class="opt">(facultatif)</span></label><textarea class="input" id="f-projets" name="projets" maxlength="800" style="min-height:90px" placeholder="GitHub, portfolio, application, montage, site…"></textarea></div>
+        <div class="field"><label for="f-projets">Projets réalisés ou liens <span class="opt" id="projets-opt">(facultatif)</span></label><p class="hint" id="projets-hint" hidden>Comme tu n'es pas débutant(e), montre-nous au moins un projet : un lien (GitHub, portfolio, site, vidéo, application…) ou une courte description de ce que tu as réalisé.</p><textarea class="input" id="f-projets" name="projets" maxlength="800" style="min-height:90px" placeholder="GitHub, portfolio, application, montage, site…"></textarea><p class="err" id="e-projets"></p></div>
       </div>
 
       <!-- Étape 4 -->
@@ -460,6 +466,17 @@ try { var t = localStorage.getItem("ctech-theme"); if (t === "light" || t === "d
         <div class="field" id="champ-poste" hidden><label for="f-poste">Quel poste du bureau t'intéresse ?</label>
           <select class="input" id="f-poste" name="poste_souhaite"><option value="">Choisir…</option><option>Communication et réseaux sociaux</option><option>Secrétariat</option><option>Trésorerie</option><option>Organisation des événements</option><option>Formation et projets techniques</option><option>Partenariats</option><option>Je ne sais pas encore</option></select>
           <p class="err" id="e-poste"></p></div>
+        <div class="engagement" id="champ-engagement" hidden>
+          <h3>Ce qu'implique le bureau</h3>
+          <p>Rejoindre le bureau, ce n'est pas seulement participer : c'est faire vivre le club. En postulant, tu t'engages à :</p>
+          <ul>
+            <li><b>Accomplir avec rigueur</b> les tâches qui te sont confiées et respecter les délais.</li>
+            <li><b>Contribuer financièrement</b> : les membres du bureau versent des contributions pour financer les activités du club (événements, matériel, déplacements…). Le montant est fixé par le bureau.</li>
+            <li><b>Être disponible</b> pour les réunions du bureau et l'organisation des activités.</li>
+          </ul>
+          <label class="consent" for="f-engagement"><input type="checkbox" id="f-engagement"><span>J'ai lu ces engagements et je postule au bureau en connaissance de cause, y compris pour les contributions financières.</span></label>
+          <p class="err" id="e-engagement"></p>
+        </div>
         <div class="field"><label for="f-motivation" id="lbl-motivation">Pourquoi veux-tu rejoindre C-Tech ?</label><textarea class="input" id="f-motivation" name="motivation" maxlength="1500" placeholder="Parle de toi, de ce que tu veux apprendre, de ce qui t'attire dans le club…"></textarea><span class="count" id="c-motivation">0 / 80 caractères minimum</span><p class="err" id="e-motivation"></p></div>
         <div class="field"><label for="f-apport">Qu'est-ce que tu apporteras au club ?</label><textarea class="input" id="f-apport" name="apport" maxlength="1000" style="min-height:100px" placeholder="Une compétence, du temps, des idées de projets, de l'énergie pour organiser…"></textarea><span class="count" id="c-apport">0 / 30 caractères minimum</span><p class="err" id="e-apport"></p></div>
         <div class="row">
@@ -910,7 +927,7 @@ function allerAccueil(e){
   if (!$("#overlay").hidden) fermerFiche();
   if (!$("#merci").hidden){            // après un envoi : on remet un formulaire vierge
     form.reset(); photo = null; $("#photo-preview").hidden = true; $("#photo-guide").removeAttribute("hidden");
-    $("#portrait").classList.remove("has"); $("#champ-poste").hidden = true; compteur("motivation",80); compteur("apport",30);
+    $("#portrait").classList.remove("has"); $("#champ-poste").hidden = true; $("#champ-engagement").hidden = true; $("#projets-hint").hidden = true; $("#projets-opt").textContent = "(facultatif)"; compteur("motivation",80); compteur("apport",30);
     $("#merci").hidden = true; form.hidden = false; afficherEtape(1);
   }
   if (location.hash) history.pushState(null, "", location.pathname + location.search);
@@ -959,12 +976,18 @@ function valider(n){
     v("filiere", val("filiere").length < 2 ? "Indique ta filière." : "");
     v("niveau", val("niveau") ? "" : "Choisis ton niveau d'études.");
     v("domaines", $$("input[name=domaines]:checked").length ? "" : "Choisis au moins un domaine.");
-    v("niveau_tech", $("input[name=niveau_tech]:checked") ? "" : "Choisis ton niveau en tech.");
+    const niv = $("input[name=niveau_tech]:checked")?.value;
+    v("niveau_tech", niv ? "" : "Choisis ton niveau en tech.");
+    if (niv && niv !== "Débutant") v("projets", val("projets").length >= 15 ? "" :
+      "Ajoute au moins un projet que tu as réalisé : un lien (GitHub, portfolio, site…) ou une courte description.");
   }
   if (n === 4){
     const type = $("input[name=type_demande]:checked")?.value;
     v("type_demande", type ? "" : "Choisis si tu postules comme membre du club ou membre du bureau.");
-    if (type === "bureau") v("poste", val("poste") ? "" : "Choisis le poste qui t'intéresse (ou « Je ne sais pas encore »).");
+    if (type === "bureau"){
+      v("poste", val("poste") ? "" : "Choisis le poste qui t'intéresse (ou « Je ne sais pas encore »).");
+      v("engagement", $("#f-engagement").checked ? "" : "Coche la case pour confirmer que tu acceptes les engagements du bureau.");
+    }
     const lm = val("motivation").length, la = val("apport").length;
     v("motivation", lm < 80 ? `Développe un peu plus tes motivations (encore ${80-lm} caractères).` : "");
     v("apport", la < 30 ? `Dis-en un peu plus (encore ${30-la} caractères).` : "");
@@ -982,8 +1005,17 @@ form.addEventListener("keydown", e => {
 form.addEventListener("input", e => {
   const id = e.target.id?.replace("f-",""); if (id && $("#e-"+id)?.textContent) erreur(id, "");
   if (e.target.name === "domaines") erreur("domaines","");
-  if (e.target.name === "niveau_tech") erreur("niveau_tech","");
+  if (e.target.name === "niveau_tech"){
+    erreur("niveau_tech","");
+    const exige = e.target.value !== "Débutant";
+    $("#projets-opt").textContent = exige ? "(obligatoire)" : "(facultatif)";
+    $("#projets-opt").classList.toggle("requis", exige);
+    $("#projets-hint").hidden = !exige;
+    if (!exige) erreur("projets","");
+  }
   if (e.target.id === "f-poste") erreur("poste","");
+  if (e.target.id === "f-engagement") erreur("engagement","");
+  if (e.target.id === "f-projets" && $("#e-projets").textContent && val("projets").length >= 15) erreur("projets","");
 });
 function compteur(champ, min){
   const n = val(champ).length, c = $("#c-"+champ);
@@ -993,7 +1025,7 @@ function compteur(champ, min){
 $("#f-motivation").addEventListener("input", () => compteur("motivation", 80));
 $$("input[name=type_demande]").forEach(r => r.addEventListener("change", () => {
   const bureau = r.value === "bureau" && r.checked;
-  $("#champ-poste").hidden = !bureau; erreur("type_demande",""); erreur("poste","");
+  $("#champ-poste").hidden = !bureau; $("#champ-engagement").hidden = !bureau; erreur("type_demande",""); erreur("poste",""); erreur("engagement","");
   $("#lbl-motivation").textContent = bureau ? "Pourquoi veux-tu rejoindre le bureau de C-Tech ?" : "Pourquoi veux-tu rejoindre C-Tech ?";
 }));
 $("#f-apport").addEventListener("input", () => compteur("apport", 30));
@@ -1242,7 +1274,7 @@ function ouvrirFiche(id, garderScroll){
             ${d.email ? `<dt>E-mail</dt><dd>${esc(d.email)}</dd>` : ""}
             <dt>Études</dt><dd>${esc(d.filiere)} · ${esc(d.niveau)}</dd>
             <dt>Établissement</dt><dd>${esc(d.etablissement)}</dd>
-            <dt>Postule pour</dt><dd><b>${esc(typeLabel(d))}</b></dd>
+            <dt>Postule pour</dt><dd><b>${esc(typeLabel(d))}</b>${estBureau(d) ? `<br><span class="trace">A accepté les engagements du bureau (rigueur, contributions financières, disponibilité).</span>` : ""}</dd>
             <dt>Niveau tech</dt><dd>${esc(d.niveau_tech)}</dd>
             <dt>Disponibilité</dt><dd>${esc(d.disponibilite)}</dd>
             ${d.source ? `<dt>A connu le club</dt><dd>${esc(d.source)}</dd>` : ""}

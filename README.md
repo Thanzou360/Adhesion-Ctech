@@ -1,116 +1,67 @@
 # Plateforme d'adhésion — Club C-Tech
 
-Un site en une seule page avec trois parties :
+Site en ligne : **https://thanzou360.github.io/Adhesion-Ctech/**
+Espace bureau : **https://thanzou360.github.io/Adhesion-Ctech/#bureau**
 
-- **Adhérer** : le candidat remplit un dossier en 4 étapes (identité, photo de son visage obligatoire, parcours, motivations). Il reçoit une référence du type `CT-7F3K2`.
-- **Suivre ma demande** : avec sa référence et son numéro WhatsApp, le candidat voit si sa demande est en attente, en entretien, acceptée ou non retenue.
-- **Espace bureau** : réservé aux membres du bureau. Chaque demande s'affiche avec la photo, les motivations, le parcours. Chaque membre donne son avis (pour, réservé, contre), le bureau prend la décision, et un bouton copie un résumé complet à coller dans le groupe WhatsApp.
-- **Alerte au bureau** : dès qu'une demande est déposée, chaque membre du bureau reçoit un e-mail avec la photo, le parcours et la motivation du candidat, et un bouton « Voir le dossier et voter ».
-- **Réponses par e-mail** : quand le bureau enregistre une décision (acceptée, entretien, non retenue), un e-mail part automatiquement au candidat depuis la boîte Gmail du club. Le texte est pré-rempli et modifiable. Le candidat reçoit aussi un e-mail « demande bien reçue » avec sa référence.
-- **Mode clair / sombre** : le site suit le réglage du téléphone, et un bouton en haut à droite permet de changer.
+## Ce que fait la plateforme
 
-Les photos et les dossiers ne sont visibles que par les comptes du bureau.
+**Pour le candidat**
+- Dossier en 4 étapes : identité (avec e-mail obligatoire), **photo du visage obligatoire**, parcours, motivations.
+- Choix **Membre du club** ou **Membre du bureau** (avec le poste visé). Pour le bureau, il doit accepter les engagements : rigueur, **contributions financières**, disponibilité.
+- Niveau **Intermédiaire** ou **Avancé** : au moins un projet ou un lien (GitHub, portfolio…) est obligatoire.
+- Après l'envoi : une référence `CT-XXXXX` et un e-mail de confirmation.
+- **Suivre ma demande** avec son numéro WhatsApp + son e-mail (la référence est facultative).
 
-Tant que Supabase n'est pas configuré, le site tourne en **mode démo** (les demandes restent dans le navigateur).
+**Pour le bureau**
+- Un e-mail « Nouvelle demande d'adhésion » arrive chez chaque membre à chaque demande.
+- Espace bureau : fiches avec photo, étiquette « Nouveau », vote **Pour / Réservé / Contre**.
+- Résultat du vote à la majorité (plus de la moitié des membres), avec la liste de ceux qui n'ont pas voté.
+- Décision (entretien, acceptée, non retenue) avec **e-mail automatique au candidat** et bouton **Prévenir sur WhatsApp**.
+- Résumé à copier pour le groupe WhatsApp, mode clair / sombre.
 
----
+## Où se trouve quoi
 
-## Mise en ligne (≈ 15 minutes)
+| Élément | Service | Ce qu'il contient |
+|---|---|---|
+| Site | GitHub Pages (ce dépôt) | `index.html`, `logo.png` |
+| Base de données | Supabase | demandes, avis, photos, comptes du bureau |
+| E-mails | EmailJS (compte gratuit, 200 envois / mois) | service Gmail + 1 modèle |
 
-### 1. Créer le projet Supabase
-1. Va sur supabase.com, crée un projet gratuit (tu peux aussi réutiliser celui du hackathon).
-2. Ouvre **SQL Editor > New query**, colle tout le contenu de `supabase.sql`, clique **Run**.
+Réglages dans `index.html`, bloc `CONFIG` :
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` : le projet Supabase.
+- `ALERTE_PRINCIPALE`, `ALERTE_COPIES` : qui reçoit l'alerte « nouvelle demande » (le premier en destinataire, les autres en copie cachée).
+- `EMAILJS` : `SERVICE_ID`, `TEMPLATE_ID`, `PUBLIC_KEY`.
+- `MODELES_EMAIL` (juste en dessous) : les textes des e-mails d'acceptation, d'entretien et de refus.
 
-### 2. Créer les comptes du bureau
-Chaque membre du bureau a besoin de deux choses : **un compte** pour se connecter à l'espace bureau, et **sa place dans la liste du bureau** pour avoir le droit de voir les demandes, voter et recevoir les e-mails « nouvelle demande ». Pas besoin de numéro de téléphone.
+## Gestion courante
 
-**a. Le compte (la clé pour entrer)** — à faire pour chaque membre
-1. **Authentication > Users > Add user > Create new user**.
-2. *Email address* : la vraie adresse e-mail du membre (c'est là qu'il recevra les nouvelles demandes).
-3. *Password* : choisis un mot de passe pour lui (au moins 6 caractères).
-4. Coche **Auto Confirm User**, puis **Create user**.
-5. Envoie-lui en privé son e-mail et son mot de passe : c'est ce qu'il tapera sur la page `#bureau`.
+**Ajouter un membre du bureau**
+1. Supabase > **Authentication > Users > Add user > Create new user** : son e-mail + un mot de passe, coche *Auto Confirm User*.
+2. Supabase > **Table Editor > bureau > Insert row** : même e-mail, son nom, son poste.
+3. Ajouter son e-mail dans `ALERTE_COPIES` de `index.html` pour qu'il reçoive les alertes.
 
-**b. La liste du bureau (la permission)**
-1. **Table Editor > bureau > Insert > Insert row**.
-2. `email` : exactement la même adresse que le compte. `nom` : son nom. `poste` : Président, Secrétaire général…
-3. **Save**. Recommence pour chaque membre.
+**Retirer un membre** : supprimer sa ligne dans `bureau`, son compte dans *Users*, et son e-mail dans `ALERTE_COPIES`.
 
-Pourquoi deux étapes ? Le compte prouve qui se connecte ; la liste dit qui a le droit. Si un jour quelqu'un réussit à se créer un compte, il ne verra rien tant qu'il n'est pas dans la liste. Pour retirer un membre, supprime sa ligne dans `bureau` (et son compte dans *Users*).
+**Mot de passe oublié** : *Authentication > Users* > le membre > *Send password recovery* (ou recréer le compte).
 
-Mot de passe oublié : dans *Authentication > Users*, clique sur le membre > **Send password recovery**, ou supprime et recrée son compte.
+## Modèle EmailJS (déjà configuré)
+- Subject : `{{sujet}}`
+- Content : `{{{message_html}}}` (dans le cadre C-TECH)
+- To Email : `{{to_email}}` · Bcc : `{{bcc}}` · From Name : `Club C-Tech`
+- Onglet Auto-Reply : désactivé
 
-Conseillé : **Authentication > Sign In / Providers**, désactive « Allow new users to sign up ».
+Chaque demande utilise 2 envois (alerte au bureau + confirmation au candidat), chaque décision 1 envoi. **Email History** dans EmailJS montre ce qui est parti.
 
-### 3. Brancher le site
-1. **Project Settings > API** : copie la **Project URL** et la clé **anon public**.
-2. Dans `index.html`, cherche le bloc `CONFIG` et colle-les :
-   ```js
-   const CONFIG = {
-     SUPABASE_URL: "https://xxxx.supabase.co",
-     SUPABASE_ANON_KEY: "eyJhbGciOi...",
-     BUCKET: "adhesions"
-   };
-   ```
-   La clé anon peut être publique : ce sont les règles de sécurité du script SQL qui protègent les données.
+## Base de données
 
-### 4. Activer les e-mails (≈ 10 minutes)
-Les e-mails partent depuis une adresse Gmail du club (ex. `ctech.officiel@gmail.com`).
+- `supabase.sql` : le script complet (à lancer une fois sur un projet neuf, il peut être relancé sans risque).
+- `sql/maj-2-type-et-suivi.sql` : mise à jour pour une base créée avant l'ajout du choix club/bureau et du suivi sans référence.
 
-**a. Créer un mot de passe d'application Gmail**
-1. Connecte-toi au compte Gmail du club, va sur myaccount.google.com > **Sécurité**.
-2. Active la **validation en deux étapes** si ce n'est pas déjà fait.
-3. Cherche **Mots de passe des applications**, crée-en un nommé « C-Tech adhésion ».
-4. Google affiche 16 lettres : copie-les (sans les espaces). Ce n'est pas le mot de passe normal du compte.
+## Méthode avancée (facultative)
+`supabase/functions/envoyer-email` est une fonction Supabase qui envoie les e-mails depuis Gmail côté serveur (plus sécurisée qu'EmailJS, mais plus longue à installer : mot de passe d'application Gmail + déploiement de la fonction). Elle n'est pas utilisée tant que `EMAILS_ACTIFS` vaut `false` et qu'EmailJS est configuré.
 
-**b. Déployer la fonction dans Supabase** (sans rien installer)
-1. Supabase > **Edge Functions** > **Deploy a new function** > **Via Editor**.
-2. Nom de la fonction : `envoyer-email` (exactement).
-3. Remplace le code proposé par tout le contenu de `supabase/functions/envoyer-email/index.ts`, puis **Deploy**.
-4. Dans les réglages de la fonction, **désactive « Verify JWT »** : la fonction vérifie elle-même que l'envoi vient d'un membre du bureau.
-
-**c. Ajouter les secrets** : Edge Functions > **Secrets** > ajoute :
-
-| Nom | Valeur |
-|---|---|
-| `GMAIL_USER` | l'adresse Gmail du club |
-| `GMAIL_APP_PASSWORD` | les 16 lettres de l'étape a |
-| `EXPEDITEUR_NOM` | `Club C-Tech` |
-| `SITE_URL` | l'adresse du site, ex. `https://thanzou360.github.io/adhesion-ctech` (sans `/` à la fin) |
-| `REPONDRE_A` | facultatif : l'adresse qui reçoit les réponses des candidats |
-
-**d. Allumer l'envoi sur le site** : dans `index.html`, bloc `CONFIG`, mets `EMAILS_ACTIFS: true`.
-
-Pour tester, dépose une demande avec ta propre adresse : tu dois recevoir l'accusé de réception (regarde aussi les spams), et chaque membre de la table `bureau` doit recevoir l'e-mail « Nouvelle demande d'adhésion ». Puis accepte-la dans l'espace bureau : l'e-mail de bienvenue doit arriver.
-
-Bon à savoir :
-- Gmail permet environ 500 e-mails par jour, largement assez pour le club.
-- Le destinataire est toujours l'e-mail enregistré dans la demande : personne ne peut utiliser le site pour écrire à quelqu'un d'autre, et le mot de passe Gmail ne quitte jamais Supabase.
-- Les modèles de messages se modifient dans `index.html`, bloc `MODELES_EMAIL`.
-
-### 5. Publier sur GitHub Pages
-1. Crée un dépôt (ex. `Thanzou360/adhesion-ctech`) et ajoute `index.html` **et `logo.png`** (le logo affiché dans les e-mails).
-2. **Settings > Pages** : Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
-3. Le site sera sur `https://thanzou360.github.io/adhesion-ctech/`.
-   - Lien à partager aux candidats : l'adresse du site.
-   - Lien pour le bureau : la même adresse suivie de `#bureau`.
-
----
-
-## Ce que la sécurité garantit
-- Un candidat peut **déposer** une demande, jamais lire celles des autres ni modifier la sienne.
+## Sécurité
+- Un candidat peut déposer une demande mais jamais lire celles des autres.
+- Les photos sont dans un stockage privé : seuls les membres de la table `bureau` les voient.
 - Une seule demande par numéro WhatsApp.
-- Le stockage des photos est privé ; le bureau les voit via des liens temporaires (1 heure).
-- Le suivi ne renvoie que le prénom, le statut et la date, et seulement si la référence **et** le numéro correspondent.
-- Un champ piège invisible bloque les robots les plus simples.
-
-## Si un e-mail ne part pas
-L'espace bureau affiche le message d'erreur et la décision reste enregistrée. Vérifie dans l'ordre :
-1. `EMAILS_ACTIFS: true` dans `index.html`.
-2. La fonction s'appelle bien `envoyer-email` et « Verify JWT » est désactivé.
-3. `GMAIL_APP_PASSWORD` est un mot de passe d'application (16 lettres), pas le mot de passe du compte.
-4. Supabase > Edge Functions > `envoyer-email` > **Logs** montre l'erreur exacte.
-
-## Idées pour la suite
-- Export des membres acceptés vers un tableur.
-- Carte de membre numérique générée à l'acceptation.
+- La clé publique EmailJS est visible dans le site : en cas d'abus, la régénérer dans EmailJS (*Account > General*) et la remplacer dans `index.html`.

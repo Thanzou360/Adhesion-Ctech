@@ -257,6 +257,8 @@ begin
     values ('suppression', v_email, v_nom, old.reference, old.prenom || ' ' || old.nom, old.motif_suppression);
     return old;
   elsif new.statut is distinct from old.statut then
+    -- décision automatique appliquée par le site : on l'indique au lieu du nom du membre connecté
+    if coalesce(new.traite_par, '') like 'Vote du bureau%' then v_nom := new.traite_par; end if;
     insert into public.journal (action, membre_email, membre_nom, reference, candidat, details)
     values ('decision', v_email, v_nom, new.reference, new.prenom || ' ' || new.nom, old.statut || ' → ' || new.statut);
   end if;

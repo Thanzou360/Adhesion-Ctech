@@ -274,6 +274,7 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .lien-fiche{all:unset;cursor:pointer;color:var(--fg);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
 .lien-fiche:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 b.ok{color:var(--ok)} b.ko{color:var(--bad)}
+.delai{font-size:13.5px!important}
 .a-voter{font-weight:700;color:var(--blue);font-size:12.5px}
 .tally{display:inline-flex;gap:10px;font:500 12.5px var(--f-mono);font-variant-numeric:tabular-nums}
 .tally i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
@@ -834,6 +835,12 @@ function apiSupabase(sb){
       const { error } = await sb.from("avis").upsert({ demande_id:id, membre_email:moi.email, vote, commentaire: commentaire || null, updated_at: new Date().toISOString() }, { onConflict:"demande_id,membre_email" });
       if (error) throw new Error("Ton avis n'a pas pu être enregistré.");
     },
+    async deciderAuto(id, ancien, nouveau, par){
+      const { data, error } = await sb.from("demandes")
+        .update({ statut: nouveau, traite_par: par, traite_le: new Date().toISOString() })
+        .eq("id", id).eq("statut", ancien).select("id");
+      return !error && (data?.length || 0) > 0;
+    },
     async decider(id, statut, note){
       const { error } = await sb.from("demandes").update({ statut, note_bureau: note || null, traite_par: moi.nom, traite_le: new Date().toISOString() }).eq("id", id);
       if (error) throw new Error("La décision n'a pas pu être enregistrée.");
@@ -920,6 +927,13 @@ function apiDemo(){
       d.avis = d.avis.filter(a => a.membre_email !== MOI.email);
       d.avis.push({ membre_email:MOI.email, vote, commentaire:commentaire||"", updated_at:new Date().toISOString() });
       ecrire();
+    },
+    async deciderAuto(id, ancien, nouveau, par){
+      const db = lire(), d = db.demandes.find(x => x.id === id);
+      if (!d || d.statut !== ancien) return false;
+      (db.journal ||= []).unshift({ action:"decision", membre_nom:par, reference:d.reference, candidat:`${d.prenom} ${d.nom}`, details:`${ancien} → ${nouveau}`, created_at:new Date().toISOString() });
+      Object.assign(d, { statut:nouveau, traite_par:par, traite_le:new Date().toISOString() });
+      ecrire(); return true;
     },
     async decider(id, statut, note){
       const db = lire(), d = db.demandes.find(x => x.id === id);
@@ -1191,7 +1205,10 @@ function demarrerBureau(m){
 }
 async function charger(){
   $("#grille-zone").innerHTML = '<div class="chargement"><span class="spin"></span> Chargement des demandes…</div>';
-  try { [B.demandes, B.journal] = await Promise.all([api.lister(), api.journal().catch(() => null)]); rendreBureau(); if (B.ouverte) ouvrirFiche(B.ouverte, true); }
+  try {
+    [B.demandes, B.journal] = await Promise.all([api.lister(), api.journal().catch(() => null)]);
+    if (await appliquerDecisionsAuto()) [B.demandes, B.journal] = await Promise.all([api.lister(), api.journal().catch(() => null)]);
+    rendreBureau(); if (B.ouverte) ouvrirFiche(B.ouverte, true); }
   catch(err){ $("#grille-zone").innerHTML = `<div class="vide"><b>Chargement impossible</b><span>${esc(err.message)}</span></div>`; }
 }
 function compteAvis(d){
@@ -1209,7 +1226,9 @@ function rendreActivite(){
       let txt, cls;
       if (j.action === "suppression"){ cls = "sup"; txt = `${qui} a supprimé la demande de ${cand}${j.details ? ` <span class="motif">Motif : ${esc(j.details)}</span>` : ""}`; }
       else { const fin = String(j.details || "").split("→").pop().trim(); cls = "dec-" + fin;
-             txt = `${qui} a passé la demande de ${cand} en « ${esc(STATUTS[fin]?.label || fin)} »`; }
+             txt = String(j.membre_nom || "").startsWith("Vote du bureau")
+               ? `<b>Décision automatique</b> ${esc(j.membre_nom.replace("Vote du bureau", "").trim())} : la demande de ${cand} passe en « ${esc(STATUTS[fin]?.label || fin)} »`
+               : `${qui} a passé la demande de ${cand} en « ${esc(STATUTS[fin]?.label || fin)} »`; }
       return `<li class="${nouv ? "nouv" : ""}"><span class="pastille ${esc(cls)}"></span><div>${txt}<span class="quand">${j.reference ? esc(j.reference) + " · " : ""}${esc(ilYa(j.created_at))}${nouv ? ' · <span class="nb-nouv">nouveau</span>' : ""}</span></div></li>`;
     }).join("")}</ul>`;
   // Colonne 2 : qui n'a pas encore voté
@@ -1219,7 +1238,7 @@ function rendreActivite(){
     `<ul class="act-liste">${ouvertes.slice(0, 8).map(d => {
       const r = resultatVote(d);
       const manquent = r.manquent.slice(0, 6).map(esc).join(", ") + (r.manquent.length > 6 ? ` et ${r.manquent.length - 6} autre${r.manquent.length - 6 > 1 ? "s" : ""}` : "");
-      return `<li><span class="pastille ${r.verdict ? "dec-" + r.verdict : "att"}"></span><div><button type="button" class="lien-fiche" data-id="${esc(d.id)}"><b>${esc(d.prenom)} ${esc(d.nom)}</b></button> · ${r.nbVotes}/${r.total} ont voté${r.verdict ? ` · <b class="${r.verdict === "acceptee" ? "ok" : "ko"}">majorité atteinte</b>` : ""}
+      return `<li><span class="pastille ${r.verdict ? "dec-" + r.verdict : "att"}"></span><div><button type="button" class="lien-fiche" data-id="${esc(d.id)}"><b>${esc(d.prenom)} ${esc(d.nom)}</b></button> · ${r.nbVotes}/${r.total} ont voté${resteVote(d) ? ` · reste ${resteVote(d)}` : " · délai terminé"}
         ${r.manquent.length ? `<span class="quand">Pas encore voté : ${manquent}</span>` : `<span class="quand">Tout le bureau a voté.</span>`}</div></li>`;
     }).join("")}</ul>`;
   $("#activite").innerHTML = `<section class="activite">
@@ -1280,17 +1299,65 @@ function resultatVote(d){
   if (c.pour >= seuil) verdict = "acceptee"; else if (c.contre >= seuil) verdict = "refusee";
   return { total, seuil, c, nbVotes: votants.size, manquent, verdict };
 }
+/* Règles du vote (fixées par le bureau) :
+   - 6 « Pour » sur 11 (plus de la moitié du bureau) → acceptée tout de suite ; pareil avec « Contre » → refusée
+   - sinon, après 3 jours : plus de « Pour » que de « Contre » → acceptée, l'inverse → refusée
+     (« Réservé » ne compte pas) ; égalité ou aucun vote → entretien
+   - une demande en entretien a de nouveau 3 jours ; en cas d'égalité, le bureau décide lui-même */
+const DELAI_VOTE_H = 72;
+const finVote = d => new Date(d.statut === "entretien" && d.traite_le ? d.traite_le : d.created_at).getTime() + DELAI_VOTE_H * 3600e3;
+function resteVote(d){
+  const ms = finVote(d) - Date.now();
+  if (ms <= 0) return null;
+  const h = Math.ceil(ms / 3600e3);
+  return h >= 24 ? `${Math.floor(h / 24)} j${h % 24 ? " " + (h % 24) + " h" : ""}` : `${h} h`;
+}
+function decisionAuto(d){
+  if (!["en_attente","entretien"].includes(d.statut)) return null;
+  const r = resultatVote(d);
+  if (r.verdict) return { statut: r.verdict, par: "Vote du bureau (majorité)" };
+  if (Date.now() < finVote(d)) return null;
+  if (r.c.pour > r.c.contre) return { statut: "acceptee", par: "Vote du bureau (fin du délai)" };
+  if (r.c.contre > r.c.pour) return { statut: "refusee", par: "Vote du bureau (fin du délai)" };
+  return d.statut === "en_attente" ? { statut: "entretien", par: "Vote du bureau (égalité)" } : null;
+}
+let autoEnCours = false;
+/* Appliquée à chaque chargement de l'espace bureau : le premier membre connecté après la majorité
+   ou la fin du délai applique la décision (une seule fois) et l'e-mail part au candidat. */
+async function appliquerDecisionsAuto(){
+  if (autoEnCours || api.listeMembres().length < 2 || !api.deciderAuto) return false;
+  autoEnCours = true; let change = false;
+  try {
+    for (const d of B.demandes){
+      const a = decisionAuto(d);
+      if (!a || a.statut === d.statut) continue;
+      if (!(await api.deciderAuto(d.id, d.statut, a.statut, a.par))) continue;
+      change = true;
+      const modele = MODELES_EMAIL[a.statut];
+      if (api.emails && modele && d.email && d.email_statut !== a.statut){
+        try { await api.envoyerEmail(d.id, remplir(modele.sujet, d), remplir(modele.message, d)); }
+        catch(e){ console.warn("E-mail automatique non envoyé :", e); }
+      }
+    }
+  } finally { autoEnCours = false; }
+  return change;
+}
+
 function blocVote(d){
   const r = resultatVote(d), pct = Math.round(100 * r.nbVotes / r.total);
   const txt = r.verdict === "acceptee" ? `<b class="ok">Majorité atteinte : le bureau accepte</b> (${r.c.pour} « Pour » sur ${r.total} membres).`
     : r.verdict === "refusee" ? `<b class="ko">Majorité atteinte : le bureau refuse</b> (${r.c.contre} « Contre » sur ${r.total} membres).`
     : `Pas encore de majorité. Il faut <b>${r.seuil} votes « Pour »</b> sur ${r.total} pour accepter (ou ${r.seuil} « Contre » pour refuser).`;
+  const ouvert = ["en_attente","entretien"].includes(d.statut), reste = ouvert ? resteVote(d) : null;
+  const delai = !ouvert ? "" : reste
+    ? `<p class="delai">⏳ Fin du vote dans <b>${reste}</b>. Ensuite, la majorité des votes exprimés décide${d.statut === "en_attente" ? " (égalité : entretien)" : " (égalité : le bureau décide)"}.</p>`
+    : `<p class="delai">Le délai de vote est terminé.${d.statut === "entretien" ? " Égalité après l'entretien : le bureau décide avec le bloc « Décision »." : ""}</p>`;
   return `<div class="vote-res">
     <div class="vote-top"><span>${r.nbVotes} / ${r.total} membres ont voté</span><span class="tally"><span><i class="d-pour"></i>${r.c.pour}</span><span><i class="d-reserve"></i>${r.c.reserve}</span><span><i class="d-contre"></i>${r.c.contre}</span></span></div>
     <div class="jauge"><span style="width:${pct}%"></span></div>
     <p>${txt}</p>
     ${r.manquent.length && r.manquent.length < r.total ? `<p class="trace">Pas encore voté : ${r.manquent.map(esc).join(", ")}</p>` : ""}
-    ${r.verdict && d.statut !== r.verdict ? `<div class="btns"><button type="button" class="btn btn-primary btn-sm" id="btn-appliquer" data-v="${r.verdict}">${r.verdict === "acceptee" ? "Passer à la décision : accepter" : "Passer à la décision : ne pas retenir"}</button></div>` : ""}
+    ${delai}
   </div>`;
 }
 
@@ -1365,6 +1432,7 @@ function ouvrirFiche(id, garderScroll){
 
       <div class="carte">
         <h3>Décision</h3>
+        <p class="trace">La décision s'applique automatiquement selon le vote. Utilise ce bloc pour corriger une décision ou trancher après un entretien.</p>
         <div class="seg" role="radiogroup" aria-label="Statut de la demande">${Object.entries(STATUTS).map(([k,s]) => `<label class="s-${k}"><input type="radio" name="statut" value="${k}" ${d.statut===k?"checked":""}><span>${k==="entretien"?"Inviter en entretien":k==="acceptee"?"Accepter":k==="refusee"?"Ne pas retenir":"En attente"}</span></label>`).join("")}</div>
         <div class="field"><label for="note-bureau">Note du bureau <span class="opt">(visible seulement par le bureau)</span></label><textarea class="input" id="note-bureau" style="min-height:70px" maxlength="500">${esc(d.note_bureau||"")}</textarea></div>
         ${d.traite_par ? `<p class="trace">Dernière décision par ${esc(d.traite_par)}, ${esc(ilYa(d.traite_le))}.</p>` : ""}

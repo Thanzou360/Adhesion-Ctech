@@ -15,7 +15,12 @@ Espace bureau : **https://thanzou360.github.io/Adhesion-Ctech/#bureau**
 **Pour le bureau**
 - Un e-mail « Nouvelle demande d'adhésion » arrive chez chaque membre à chaque demande.
 - Espace bureau : fiches avec photo, étiquette « Nouveau », vote **Pour / Réservé / Contre**.
-- Résultat du vote à la majorité (plus de la moitié des membres), avec la liste de ceux qui n'ont pas voté.
+- Vote avec **décision automatique** (règles fixées par le bureau) :
+  - plus de la moitié du bureau vote « Pour » (6 sur 11) → **acceptée** tout de suite ; même chose avec « Contre » → **refusée** ;
+  - sinon, au bout de **3 jours** : plus de « Pour » que de « Contre » → acceptée, l'inverse → refusée (« Réservé » ne compte pas) ;
+  - égalité ou aucun vote → **entretien**, avec 3 nouveaux jours ; si l'égalité persiste après l'entretien, le bureau tranche avec le bloc « Décision » ;
+  - personne n'a besoin de déclencher : le premier membre qui ouvre l'espace bureau applique la décision, et l'e-mail part au candidat ;
+  - le délai se change dans `index.html` (`DELAI_VOTE_H`, en heures).
 - Décision (entretien, acceptée, non retenue) avec **e-mail automatique au candidat** et bouton **Prévenir sur WhatsApp**.
 - Panneau **Activité du bureau** : qui a supprimé quelle demande (avec le motif) et qui a pris quelle décision ; panneau **Votes en cours** : qui n'a pas encore voté.
 - Suppression d'une demande : motif obligatoire, visible par tout le bureau.

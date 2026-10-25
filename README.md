@@ -17,6 +17,8 @@ Espace bureau : **https://thanzou360.github.io/Adhesion-Ctech/#bureau**
 - Espace bureau : fiches avec photo, étiquette « Nouveau », vote **Pour / Réservé / Contre**.
 - Résultat du vote à la majorité (plus de la moitié des membres), avec la liste de ceux qui n'ont pas voté.
 - Décision (entretien, acceptée, non retenue) avec **e-mail automatique au candidat** et bouton **Prévenir sur WhatsApp**.
+- Panneau **Activité du bureau** : qui a supprimé quelle demande (avec le motif) et qui a pris quelle décision ; panneau **Votes en cours** : qui n'a pas encore voté.
+- Suppression d'une demande : motif obligatoire, visible par tout le bureau.
 - Résumé à copier pour le groupe WhatsApp, mode clair / sombre.
 
 ## Où se trouve quoi
@@ -56,6 +58,7 @@ Chaque demande utilise 2 envois (alerte au bureau + confirmation au candidat), c
 
 - `supabase.sql` : le script complet (à lancer une fois sur un projet neuf, il peut être relancé sans risque).
 - `sql/maj-2-type-et-suivi.sql` : mise à jour pour une base créée avant l'ajout du choix club/bureau et du suivi sans référence.
+- `sql/maj-3-historique.sql` : historique des suppressions et décisions (panneau « Activité du bureau »), rempli automatiquement par la base et impossible à effacer depuis le site.
 
 ## Méthode avancée (facultative)
 `supabase/functions/envoyer-email` est une fonction Supabase qui envoie les e-mails depuis Gmail côté serveur (plus sécurisée qu'EmailJS, mais plus longue à installer : mot de passe d'application Gmail + déploiement de la fonction). Elle n'est pas utilisée tant que `EMAILS_ACTIFS` vaut `false` et qu'EmailJS est configuré.

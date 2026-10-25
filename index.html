@@ -258,6 +258,22 @@ textarea.input{min-height:130px;resize:vertical;line-height:1.5}
 .engagement ul{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--muted);font-size:14.5px}
 .engagement ul b{color:var(--fg)}
 .opt.requis{color:var(--warn);font-weight:600}
+.activite{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:820px){.activite{grid-template-columns:1fr}}
+.act-col{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:12px;align-content:start}
+.act-col h2{font:700 15px var(--f-body);color:var(--fg)}
+.act-liste{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+.act-liste li{display:grid;grid-template-columns:10px minmax(0,1fr);gap:10px;align-items:start;font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.act-liste li b{color:var(--fg)}
+.act-liste li.nouv{color:var(--fg)}
+.act-liste .quand{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
+.act-liste .motif{display:block;font-style:italic}
+.pastille{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--line-2)}
+.pastille.sup{background:var(--bad)} .pastille.dec-acceptee{background:var(--ok)} .pastille.dec-refusee{background:var(--bad)}
+.pastille.dec-entretien{background:var(--warn)} .pastille.dec-en_attente,.pastille.att{background:var(--info)}
+.lien-fiche{all:unset;cursor:pointer;color:var(--fg);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
+.lien-fiche:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+b.ok{color:var(--ok)} b.ko{color:var(--bad)}
 .a-voter{font-weight:700;color:var(--blue);font-size:12.5px}
 .tally{display:inline-flex;gap:10px;font:500 12.5px var(--f-mono);font-variant-numeric:tabular-nums}
 .tally i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
@@ -550,6 +566,7 @@ try { var t = localStorage.getItem("ctech-theme"); if (t === "light" || t === "d
         <button class="btn btn-ghost btn-sm" type="button" id="btn-logout">Se déconnecter</button>
       </div>
     </div>
+    <div id="activite"></div>
     <div class="filtres" id="filtres" role="group" aria-label="Filtrer par statut"></div>
     <div id="grille-zone"></div>
   </div>
@@ -821,10 +838,15 @@ function apiSupabase(sb){
       const { error } = await sb.from("demandes").update({ statut, note_bureau: note || null, traite_par: moi.nom, traite_le: new Date().toISOString() }).eq("id", id);
       if (error) throw new Error("La décision n'a pas pu être enregistrée.");
     },
-    async supprimer(d){
-      await B().remove([d.photo_path]);
+    async supprimer(d, motif){
+      await sb.from("demandes").update({ motif_suppression: motif }).eq("id", d.id); // pour l'historique
       const { error } = await sb.from("demandes").delete().eq("id", d.id);
       if (error) throw new Error("La suppression a échoué.");
+      await B().remove([d.photo_path]);
+    },
+    async journal(){
+      const { data, error } = await sb.from("journal").select("*").order("created_at", { ascending:false }).limit(40);
+      return error ? null : data;   // null = historique pas encore activé dans Supabase
     }
   };
 }
@@ -847,6 +869,9 @@ function apiDemo(){
         avis:[{membre_email:"president@ctech", vote:"reserve", commentaire:"À rencontrer pour mieux connaître sa disponibilité.", updated_at:j(2)},{membre_email:"sg@ctech", vote:"pour", commentaire:"", updated_at:j(2)}] },
       { id:uuid(), exemple:true, reference:"CT-H2ZP9", created_at:j(6), prenom:"Grâce", nom:"Moussavou", telephone:"+241 06 00 00 03", email:"grace.exemple@gmail.com", etablissement:"IST — Institut Supérieur de Technologie", filiere:"Génie électrique", niveau:"3e année", domaines:["Électronique & robotique","Intelligence artificielle & data"], niveau_tech:"Avancé", projets:"Robot suiveur de ligne sur Arduino, projet de fin d'année sur la détection de pannes.", motivation:"Je souhaite partager ce que j'ai appris en électronique et monter une équipe robotique au sein du club pour participer à des compétitions. Le club est le meilleur endroit pour réunir des profils variés.", apport:"Je peux encadrer un atelier Arduino et prêter mon matériel pour les premières séances.", disponibilite:"Plusieurs heures par semaine", source:"WhatsApp", photo_data:avatar("EXEMPLE","#a34cf4","#35e0f0"), statut:"acceptee", note_bureau:"Ajoutée au groupe WhatsApp.", traite_par:"Président (exemple)", traite_le:j(4), email_envoye_le:j(4), email_statut:"acceptee", email_envoye_par:"Président (exemple)",
         avis:[{membre_email:"president@ctech", vote:"pour", commentaire:"", updated_at:j(5)},{membre_email:"sg@ctech", vote:"pour", commentaire:"Parfait pour lancer la cellule robotique.", updated_at:j(5)}] }
+    ], journal: [
+      { action:"suppression", membre_nom:"Secrétaire général (exemple)", reference:"CT-T3ST1", candidat:"Demande TEST", details:"Demande de test faite par le bureau", created_at:j(0.3) },
+      { action:"decision", membre_nom:"Président (exemple)", reference:"CT-H2ZP9", candidat:"Grâce Moussavou", details:"en_attente → acceptee", created_at:j(4) }
     ]};
   }
   function lire(){
@@ -897,10 +922,17 @@ function apiDemo(){
       ecrire();
     },
     async decider(id, statut, note){
-      Object.assign(lire().demandes.find(x => x.id === id), { statut, note_bureau:note||null, traite_par:MOI.nom, traite_le:new Date().toISOString() });
+      const db = lire(), d = db.demandes.find(x => x.id === id);
+      if (d.statut !== statut) (db.journal ||= []).unshift({ action:"decision", membre_nom:MOI.nom, reference:d.reference, candidat:`${d.prenom} ${d.nom}`, details:`${d.statut} → ${statut}`, created_at:new Date().toISOString() });
+      Object.assign(d, { statut, note_bureau:note||null, traite_par:MOI.nom, traite_le:new Date().toISOString() });
       ecrire();
     },
-    async supprimer(d){ const db = lire(); db.demandes = db.demandes.filter(x => x.id !== d.id); ecrire(); }
+    async supprimer(d, motif){
+      const db = lire(); db.demandes = db.demandes.filter(x => x.id !== d.id);
+      (db.journal ||= []).unshift({ action:"suppression", membre_nom:MOI.nom, reference:d.reference, candidat:`${d.prenom} ${d.nom}`, details:motif, created_at:new Date().toISOString() });
+      ecrire();
+    },
+    async journal(){ return lire().journal || []; }
   };
 }
 
@@ -1152,19 +1184,52 @@ $("#btn-actualiser").addEventListener("click", () => charger());
 function demarrerBureau(m){
   B.moi = m;
   chargerVues();
+  try { B.derniereVisite = +localStorage.getItem("ctech-visite-" + m.email) || 0; localStorage.setItem("ctech-visite-" + m.email, String(Date.now())); } catch(e){ B.derniereVisite = 0; }
   $("#bureau-login").hidden = true; $("#bureau-app").hidden = false;
   $("#bureau-who").textContent = `Connecté(e) : ${m.nom} · ${m.poste}`;
   charger();
 }
 async function charger(){
   $("#grille-zone").innerHTML = '<div class="chargement"><span class="spin"></span> Chargement des demandes…</div>';
-  try { B.demandes = await api.lister(); rendreBureau(); if (B.ouverte) ouvrirFiche(B.ouverte, true); }
+  try { [B.demandes, B.journal] = await Promise.all([api.lister(), api.journal().catch(() => null)]); rendreBureau(); if (B.ouverte) ouvrirFiche(B.ouverte, true); }
   catch(err){ $("#grille-zone").innerHTML = `<div class="vide"><b>Chargement impossible</b><span>${esc(err.message)}</span></div>`; }
 }
 function compteAvis(d){
   const c = { pour:0, reserve:0, contre:0 }; (d.avis||[]).forEach(a => c[a.vote] = (c[a.vote]||0) + 1); return c;
 }
+function rendreActivite(){
+  const membres = api.listeMembres(), moiEmail = B.moi.email.toLowerCase();
+  // Colonne 1 : historique des suppressions et décisions
+  let hist;
+  if (B.journal === null) hist = `<p class="trace">L'historique n'est pas encore activé : il manque la mise à jour de la base (voir le guide).</p>`;
+  else if (!B.journal?.length) hist = `<p class="trace">Aucune suppression ni décision pour l'instant.</p>`;
+  else hist = `<ul class="act-liste">${B.journal.slice(0, 8).map(j => {
+      const nouv = new Date(j.created_at).getTime() > B.derniereVisite;
+      const qui = `<b>${esc(j.membre_nom || "Quelqu'un")}</b>`, cand = `<b>${esc(j.candidat || "")}</b>`;
+      let txt, cls;
+      if (j.action === "suppression"){ cls = "sup"; txt = `${qui} a supprimé la demande de ${cand}${j.details ? ` <span class="motif">Motif : ${esc(j.details)}</span>` : ""}`; }
+      else { const fin = String(j.details || "").split("→").pop().trim(); cls = "dec-" + fin;
+             txt = `${qui} a passé la demande de ${cand} en « ${esc(STATUTS[fin]?.label || fin)} »`; }
+      return `<li class="${nouv ? "nouv" : ""}"><span class="pastille ${esc(cls)}"></span><div>${txt}<span class="quand">${j.reference ? esc(j.reference) + " · " : ""}${esc(ilYa(j.created_at))}${nouv ? ' · <span class="nb-nouv">nouveau</span>' : ""}</span></div></li>`;
+    }).join("")}</ul>`;
+  // Colonne 2 : qui n'a pas encore voté
+  const ouvertes = B.demandes.filter(d => ["en_attente","entretien"].includes(d.statut));
+  const sansMoi = ouvertes.filter(d => !(d.avis||[]).some(a => a.membre_email.toLowerCase() === moiEmail)).length;
+  const votes = !ouvertes.length ? `<p class="trace">Aucune demande en cours de vote.</p>` :
+    `<ul class="act-liste">${ouvertes.slice(0, 8).map(d => {
+      const r = resultatVote(d);
+      const manquent = r.manquent.slice(0, 6).map(esc).join(", ") + (r.manquent.length > 6 ? ` et ${r.manquent.length - 6} autre${r.manquent.length - 6 > 1 ? "s" : ""}` : "");
+      return `<li><span class="pastille ${r.verdict ? "dec-" + r.verdict : "att"}"></span><div><button type="button" class="lien-fiche" data-id="${esc(d.id)}"><b>${esc(d.prenom)} ${esc(d.nom)}</b></button> · ${r.nbVotes}/${r.total} ont voté${r.verdict ? ` · <b class="${r.verdict === "acceptee" ? "ok" : "ko"}">majorité atteinte</b>` : ""}
+        ${r.manquent.length ? `<span class="quand">Pas encore voté : ${manquent}</span>` : `<span class="quand">Tout le bureau a voté.</span>`}</div></li>`;
+    }).join("")}</ul>`;
+  $("#activite").innerHTML = `<section class="activite">
+    <div class="act-col"><h2>Activité du bureau</h2>${hist}</div>
+    <div class="act-col"><h2>Votes en cours${sansMoi ? ` <span class="a-voter">· ton avis manque sur ${sansMoi}</span>` : ""}</h2>${votes}</div>
+  </section>`;
+  $$("#activite .lien-fiche").forEach(b => b.addEventListener("click", () => ouvrirFiche(b.dataset.id)));
+}
 function rendreBureau(){
+  rendreActivite();
   const nouvelles = B.demandes.filter(estNouvelle).length;
   $("#bureau-who").innerHTML = `Connecté(e) : ${esc(B.moi.nom)} · ${esc(B.moi.poste)}` +
     (nouvelles ? ` · <span class="nb-nouv">${nouvelles} nouvelle${nouvelles>1?"s":""} demande${nouvelles>1?"s":""}</span>` : "");
@@ -1391,11 +1456,18 @@ function ouvrirFiche(id, garderScroll){
   $("#btn-wa").addEventListener("click", () => copier(resumeWhatsApp(d), $("#zone-partage")));
   $("#btn-suppr").addEventListener("click", () => {
     const z = $("#zone-suppr");
-    z.innerHTML = `<span class="trace" style="flex-basis:100%">La demande et la photo seront supprimées définitivement.</span><button type="button" class="btn btn-danger btn-sm" id="btn-suppr-ok">Confirmer la suppression</button><button type="button" class="btn btn-ghost btn-sm" id="btn-suppr-non">Annuler</button>`;
+    z.innerHTML = `<div class="field" style="flex-basis:100%"><label for="motif-suppr">Pourquoi supprimer cette demande ?</label>
+        <input class="input" id="motif-suppr" maxlength="200" placeholder="Ex. demande en double, demande de test, fausse identité…">
+        <p class="hint">La demande et la photo seront supprimées définitivement. Ton nom et ce motif apparaîtront dans l'activité du bureau.</p>
+        <p class="err" id="e-suppr"></p></div>
+      <button type="button" class="btn btn-danger btn-sm" id="btn-suppr-ok">Confirmer la suppression</button><button type="button" class="btn btn-ghost btn-sm" id="btn-suppr-non">Annuler</button>`;
+    $("#motif-suppr").focus();
     $("#btn-suppr-non").addEventListener("click", () => ouvrirFiche(d.id, true));
     $("#btn-suppr-ok").addEventListener("click", async () => {
-      try { await api.supprimer(d); toast("Demande supprimée"); fermerFiche(); await charger(); }
-      catch(err){ toast(err.message); }
+      const motif = $("#motif-suppr").value.trim();
+      if (motif.length < 4){ $("#e-suppr").textContent = "Indique la raison de la suppression : le reste du bureau la verra."; return; }
+      try { await api.supprimer(d, motif); toast("Demande supprimée"); fermerFiche(); await charger(); }
+      catch(err){ $("#e-suppr").textContent = err.message; }
     });
   });
 }
